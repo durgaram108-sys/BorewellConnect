@@ -138,6 +138,8 @@ function DashboardTab() {
 
 function CompaniesTab() {
   const [companies, setCompanies] = useState<Company[]>([]);
+  const [search, setSearch] = useState("");
+  const [statusFilter, setStatusFilter] = useState<"ALL" | "PENDING" | "VERIFIED">("ALL");
   useEffect(() => {
     api.companies().then(setCompanies).catch(console.error);
   }, []);
@@ -149,9 +151,39 @@ function CompaniesTab() {
 
   const headerCell: React.CSSProperties = { fontSize: 11, fontWeight: 700, color: c.muted };
 
+  const q = search.trim().toLowerCase();
+  const filtered = companies.filter((co) => {
+    if (statusFilter !== "ALL" && co.status !== statusFilter) return false;
+    if (!q) return true;
+    return co.name.toLowerCase().includes(q) || co.ownerName.toLowerCase().includes(q) || co.city.toLowerCase().includes(q);
+  });
+
   return (
     <>
-      <h1 style={{ fontSize: 20, fontWeight: 800, margin: "0 0 18px" }}>Companies ({companies.length})</h1>
+      <h1 style={{ fontSize: 20, fontWeight: 800, margin: "0 0 18px" }}>Companies ({filtered.length}/{companies.length})</h1>
+      <div style={{ display: "flex", gap: 10, marginBottom: 16 }}>
+        <input
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          placeholder="Search by name, owner, or city…"
+          style={{
+            flex: 1,
+            border: `1px solid ${c.border}`,
+            borderRadius: 10,
+            padding: "10px 13px",
+            fontSize: 13,
+          }}
+        />
+        <select
+          value={statusFilter}
+          onChange={(e) => setStatusFilter(e.target.value as typeof statusFilter)}
+          style={{ border: `1px solid ${c.border}`, borderRadius: 10, padding: "10px 13px", fontSize: 13 }}
+        >
+          <option value="ALL">All statuses</option>
+          <option value="PENDING">Pending</option>
+          <option value="VERIFIED">Verified</option>
+        </select>
+      </div>
       <div style={{ ...card, overflow: "hidden" }}>
         <div
           style={{
@@ -166,7 +198,8 @@ function CompaniesTab() {
           <div style={{ ...headerCell, flex: 1 }}>STATUS</div>
           <div style={{ ...headerCell, flex: 1, textAlign: "right" }}>ACTION</div>
         </div>
-        {companies.map((co) => {
+        {filtered.length === 0 && <div style={{ padding: 16, fontSize: 13, color: c.muted }}>No companies match.</div>}
+        {filtered.map((co) => {
           const verified = co.status === "VERIFIED";
           return (
             <div
@@ -225,17 +258,61 @@ function CompaniesTab() {
   );
 }
 
+type SortKey = "code" | "amount" | "status";
+
 function BookingsTab() {
   const [bookings, setBookings] = useState<BookingRow[]>([]);
+  const [search, setSearch] = useState("");
+  const [sortKey, setSortKey] = useState<SortKey>("code");
+  const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
   useEffect(() => {
     api.bookings().then(setBookings).catch(console.error);
   }, []);
 
   const headerCell: React.CSSProperties = { fontSize: 11, fontWeight: 700, color: c.muted };
+  const sortableCell: React.CSSProperties = { ...headerCell, cursor: "pointer", userSelect: "none" };
+
+  const toggleSort = (key: SortKey) => {
+    if (key === sortKey) setSortDir((d) => (d === "asc" ? "desc" : "asc"));
+    else {
+      setSortKey(key);
+      setSortDir("asc");
+    }
+  };
+  const sortArrow = (key: SortKey) => (key === sortKey ? (sortDir === "asc" ? " ▲" : " ▼") : "");
+
+  const q = search.trim().toLowerCase();
+  const filtered = bookings.filter(
+    (b) =>
+      !q ||
+      b.code.toLowerCase().includes(q) ||
+      b.customerName.toLowerCase().includes(q) ||
+      b.companyName.toLowerCase().includes(q)
+  );
+  const sorted = [...filtered].sort((a, b) => {
+    const dir = sortDir === "asc" ? 1 : -1;
+    if (sortKey === "amount") return (a.amount - b.amount) * dir;
+    if (sortKey === "status") return a.status.localeCompare(b.status) * dir;
+    return a.code.localeCompare(b.code) * dir;
+  });
 
   return (
     <>
-      <h1 style={{ fontSize: 20, fontWeight: 800, margin: "0 0 18px" }}>Bookings</h1>
+      <h1 style={{ fontSize: 20, fontWeight: 800, margin: "0 0 18px" }}>Bookings ({sorted.length}/{bookings.length})</h1>
+      <input
+        value={search}
+        onChange={(e) => setSearch(e.target.value)}
+        placeholder="Search by booking code, customer, or company…"
+        style={{
+          width: "100%",
+          border: `1px solid ${c.border}`,
+          borderRadius: 10,
+          padding: "10px 13px",
+          fontSize: 13,
+          marginBottom: 16,
+          boxSizing: "border-box",
+        }}
+      />
       <div style={{ ...card, overflow: "hidden" }}>
         <div
           style={{
@@ -245,14 +322,20 @@ function BookingsTab() {
             borderBottom: `1px solid ${c.rowBorder}`,
           }}
         >
-          <div style={{ ...headerCell, flex: 1 }}>BOOKING ID</div>
+          <div style={{ ...sortableCell, flex: 1 }} onClick={() => toggleSort("code")}>
+            BOOKING ID{sortArrow("code")}
+          </div>
           <div style={{ ...headerCell, flex: 1 }}>CUSTOMER</div>
           <div style={{ ...headerCell, flex: 2 }}>COMPANY</div>
-          <div style={{ ...headerCell, flex: 1 }}>AMOUNT</div>
-          <div style={{ ...headerCell, flex: 1, textAlign: "right" }}>STATUS</div>
+          <div style={{ ...sortableCell, flex: 1 }} onClick={() => toggleSort("amount")}>
+            AMOUNT{sortArrow("amount")}
+          </div>
+          <div style={{ ...sortableCell, flex: 1, textAlign: "right" }} onClick={() => toggleSort("status")}>
+            STATUS{sortArrow("status")}
+          </div>
         </div>
-        {bookings.length === 0 && <div style={{ padding: 16, fontSize: 13, color: c.muted }}>No bookings yet</div>}
-        {bookings.map((b) => (
+        {sorted.length === 0 && <div style={{ padding: 16, fontSize: 13, color: c.muted }}>No bookings match.</div>}
+        {sorted.map((b) => (
           <div
             key={b.id}
             style={{
@@ -303,6 +386,9 @@ function AnalyticsTab() {
             const isLast = i === data.revenueTrend.length - 1;
             return (
               <div key={m.month} style={{ flex: 1, display: "flex", flexDirection: "column", justifyContent: "flex-end", height: "100%" }}>
+                <div style={{ textAlign: "center", fontSize: 10, fontWeight: 700, color: c.muted, marginBottom: 4 }}>
+                  {m.amount >= 1000 ? `₹${Math.round(m.amount / 1000)}k` : inr(m.amount)}
+                </div>
                 <div
                   style={{
                     background: isLast ? c.green : c.greenSoft,
@@ -334,7 +420,7 @@ function AnalyticsTab() {
           {data.bookingsByStatus.map((g) => (
             <div key={g.status} style={{ display: "flex", alignItems: "center", gap: 6 }}>
               <div style={{ width: 9, height: 9, borderRadius: 5, background: segColor(g.status) }} />
-              {statusLabel(g.status)} · {g.count.toLocaleString("en-IN")}
+              {statusLabel(g.status)} · {g.count.toLocaleString("en-IN")} ({Math.round((g.count / totalByStatus) * 100)}%)
             </div>
           ))}
         </div>
