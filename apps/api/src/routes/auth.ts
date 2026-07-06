@@ -38,14 +38,15 @@ authRouter.post("/customer/otp/verify", async (req, res) => {
 
   await prisma.otp.update({ where: { id: otp.id }, data: { verified: true } });
 
-  const customer = await prisma.customer.upsert({
-    where: { phone },
-    update: {},
-    create: { phone },
-  });
+  let customer = await prisma.customer.findUnique({ where: { phone } });
+  let isNew = false;
+  if (!customer) {
+    isNew = true;
+    customer = await prisma.customer.create({ data: { phone } });
+  }
 
   const token = signToken({ sub: customer.id, role: "customer" });
-  res.json({ token, customer: { id: customer.id, phone: customer.phone, name: customer.name } });
+  res.json({ token, customer, isNew: isNew || !customer.name || !customer.address });
 });
 
 // ---- Owner (borewell company) OTP auth ----

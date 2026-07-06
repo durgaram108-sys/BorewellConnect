@@ -10,7 +10,30 @@ import { env } from "../env";
 export const customerRouter = Router();
 customerRouter.use(requireAuth("customer"));
 
+// ---- Profile ----
+
+customerRouter.get("/profile", async (req: AuthedRequest, res) => {
+  const customer = await prisma.customer.findUnique({ where: { id: req.auth!.sub } });
+  if (!customer) return res.status(404).json({ error: "Customer not found" });
+  res.json(customer);
+});
+
+const customerProfileSchema = z.object({
+  name: z.string().min(1).optional(),
+  address: z.string().min(1).optional(),
+});
+
+customerRouter.patch("/profile", async (req: AuthedRequest, res) => {
+  const parsed = customerProfileSchema.safeParse(req.body);
+  if (!parsed.success) return res.status(400).json({ error: parsed.error.issues[0].message });
+
+  const customer = await prisma.customer.update({ where: { id: req.auth!.sub }, data: parsed.data });
+  res.json(customer);
+});
+
 const requestSchema = z.object({
+  country: z.string().min(1).default("India"),
+  state: z.string().min(1),
   district: z.string().min(1),
   mandal: z.string().min(1),
   landType: z.enum(["Agriculture", "Residential", "Commercial"]),

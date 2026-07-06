@@ -28,9 +28,10 @@ ownerRouter.get("/leads", async (req: AuthedRequest, res) => {
     leads.map((l) => ({
       id: l.id,
       code: l.code,
+      country: l.country,
+      state: l.state,
       district: l.district,
       mandal: l.mandal,
-      state: "Telangana",
       landType: l.landType,
       depthFt: l.depthFt,
       preferredDate: l.preferredDate,
@@ -184,7 +185,7 @@ ownerRouter.get("/earnings", async (req: AuthedRequest, res) => {
 ownerRouter.get("/profile", async (req: AuthedRequest, res) => {
   const company = await prisma.company.findUnique({
     where: { id: req.auth!.sub },
-    include: { vehiclePhotos: true },
+    include: { vehiclePhotos: true, borewellPhotos: true },
   });
   if (!company) return res.status(404).json({ error: "Company not found" });
   res.json(company);
@@ -193,6 +194,7 @@ ownerRouter.get("/profile", async (req: AuthedRequest, res) => {
 const profileSchema = z.object({
   name: z.string().min(1).optional(),
   ownerName: z.string().optional(),
+  address: z.string().optional(),
   city: z.string().optional(),
   state: z.string().optional(),
   experienceYears: z.coerce.number().int().min(0).optional(),
@@ -227,4 +229,25 @@ ownerRouter.put("/profile/photos", async (req: AuthedRequest, res) => {
     create: { companyId: req.auth!.sub, ...parsed.data },
   });
   res.json(photo);
+});
+
+const borewellPhotoSchema = z.object({ url: z.string().min(1) });
+
+/** Portfolio gallery of completed/example borewell work — shown to customers, unlimited count. */
+ownerRouter.post("/profile/borewell-photos", async (req: AuthedRequest, res) => {
+  const parsed = borewellPhotoSchema.safeParse(req.body);
+  if (!parsed.success) return res.status(400).json({ error: parsed.error.issues[0].message });
+
+  const photo = await prisma.borewellPhoto.create({
+    data: { companyId: req.auth!.sub, url: parsed.data.url },
+  });
+  res.status(201).json(photo);
+});
+
+ownerRouter.delete("/profile/borewell-photos/:id", async (req: AuthedRequest, res) => {
+  const photo = await prisma.borewellPhoto.findUnique({ where: { id: req.params.id } });
+  if (!photo || photo.companyId !== req.auth!.sub) return res.status(404).json({ error: "Photo not found" });
+
+  await prisma.borewellPhoto.delete({ where: { id: photo.id } });
+  res.json({ ok: true });
 });
