@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { View } from "react-native";
+import { Text, View } from "react-native";
 import { NavigationContainer, DefaultTheme } from "@react-navigation/native";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import { StatusBar } from "expo-status-bar";
@@ -94,7 +94,8 @@ const theme = {
 
 export default function App() {
   const [ready, setReady] = useState(false);
-  const [fontsLoaded] = useFonts({
+  const [fontTimeout, setFontTimeout] = useState(false);
+  const [fontsLoaded, fontError] = useFonts({
     Manrope_500Medium,
     Manrope_600SemiBold,
     Manrope_700Bold,
@@ -103,9 +104,18 @@ export default function App() {
 
   useEffect(() => {
     loadTokens().finally(() => setReady(true));
+    // Don't hang forever on font loading — fall back to system fonts.
+    const t = setTimeout(() => setFontTimeout(true), 4000);
+    return () => clearTimeout(t);
   }, []);
 
-  if (!ready || !fontsLoaded) return <View style={{ flex: 1, backgroundColor: c.navy }} />;
+  if (!ready || (!fontsLoaded && !fontError && !fontTimeout)) {
+    return (
+      <View style={{ flex: 1, minHeight: 400, backgroundColor: c.navy, alignItems: "center", justifyContent: "center" }}>
+        <Text style={{ color: "#fff", fontSize: 16 }}>Loading Borewell Connect…</Text>
+      </View>
+    );
+  }
 
   return (
     <NavigationContainer theme={theme}>
