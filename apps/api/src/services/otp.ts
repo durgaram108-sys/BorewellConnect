@@ -31,7 +31,7 @@ export async function sendOtpSms(phone: string, code: string): Promise<void> {
 }
 
 export function newOtpCode(): string {
-  return generateCode();
+  return env.msg91MockOtp ? "123456" : generateCode();
 }
 
 export function otpExpiry(): Date {
