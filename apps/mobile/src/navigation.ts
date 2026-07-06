@@ -10,8 +10,9 @@ export type CustomerStackParams = {
   CustomerLogin: undefined;
   CustomerOtp: { phone: string };
   CustomerHome: undefined;
+  CompleteProfile: undefined;
   NewRequest: undefined;
-  SelectLocation: { district: string; mandal: string; landType: string; depthFt: number };
+  SelectLocation: { country: string; state: string; district: string; mandal: string; landType: string; depthFt: number };
   Quotations: { requestId: string; code: string };
   QuoteDetail: { requestId: string; quote: RankedQuote };
   BookingConfirm: { bookingId: string; code: string; companyName: string };

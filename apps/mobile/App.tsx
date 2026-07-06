@@ -12,9 +12,10 @@ import {
 } from "@expo-google-fonts/manrope";
 import { loadTokens, hasCustomerToken, hasOwnerToken } from "./src/api";
 import { c } from "./src/theme";
+import { ToastHost } from "./src/components/Toast";
 import type { CustomerStackParams, OwnerStackParams, RootStackParams } from "./src/navigation";
 import { RoleSelect } from "./src/screens/RoleSelect";
-import { CustomerLogin, CustomerOtp } from "./src/screens/customer/AuthScreens";
+import { CustomerLogin, CustomerOtp, CompleteProfile } from "./src/screens/customer/AuthScreens";
 import { CustomerHome, NewRequest, SelectLocation } from "./src/screens/customer/RequestScreens";
 import { Quotations, QuoteDetail, BookingConfirm, Payment } from "./src/screens/customer/QuoteScreens";
 import {
@@ -51,6 +52,7 @@ function CustomerFlow() {
       <CustomerStack.Screen name="CustomerLogin" component={CustomerLogin} />
       <CustomerStack.Screen name="CustomerOtp" component={CustomerOtp} />
       <CustomerStack.Screen name="CustomerHome" component={CustomerHome} />
+      <CustomerStack.Screen name="CompleteProfile" component={CompleteProfile} />
       <CustomerStack.Screen name="NewRequest" component={NewRequest} />
       <CustomerStack.Screen name="SelectLocation" component={SelectLocation} />
       <CustomerStack.Screen name="Quotations" component={Quotations} />
@@ -125,6 +127,7 @@ export default function App() {
         <Root.Screen name="Customer" component={CustomerFlow} />
         <Root.Screen name="Owner" component={OwnerFlow} />
       </Root.Navigator>
+      <ToastHost />
     </NavigationContainer>
   );
 }

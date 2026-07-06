@@ -11,6 +11,14 @@ import {
 } from "react-native";
 import { c, font } from "../theme";
 
+export function LoadingScreen() {
+  return (
+    <View style={{ flex: 1, backgroundColor: c.bg, alignItems: "center", justifyContent: "center" }}>
+      <ActivityIndicator color={c.navy} size="large" />
+    </View>
+  );
+}
+
 export function PrimaryButton({
   title,
   onPress,

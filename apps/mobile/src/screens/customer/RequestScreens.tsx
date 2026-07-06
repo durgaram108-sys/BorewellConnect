@@ -1,14 +1,31 @@
-import React, { useCallback, useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import { Pressable, ScrollView, Text, View } from "react-native";
 import { NativeStackScreenProps } from "@react-navigation/native-stack";
 import { useFocusEffect } from "@react-navigation/native";
-import Svg, { Circle, Path } from "react-native-svg";
+import { Controller, useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { z } from "zod";
+import * as Location from "expo-location";
 import { api, RequestRow } from "../../api";
 import { c, font } from "../../theme";
-import { Card, Field, FieldLabel, PrimaryButton, ErrorText, ScreenTitle, StripedPlaceholder } from "../../components/ui";
+import { Card, Field, FieldLabel, PrimaryButton, ErrorText, ScreenTitle } from "../../components/ui";
+import { SelectLocationMap } from "../../components/SelectLocationMap";
 import type { CustomerStackParams } from "../../navigation";
 
 const LAND_TYPES = ["Agriculture", "Residential", "Commercial"] as const;
+
+const newRequestSchema = z.object({
+  country: z.string().min(1, "Enter country"),
+  state: z.string().min(1, "Enter state"),
+  district: z.string().min(1, "Enter district"),
+  mandal: z.string().min(1, "Enter mandal/area"),
+  landType: z.enum(LAND_TYPES),
+  depth: z
+    .string()
+    .min(1, "Enter the expected depth")
+    .refine((v) => Number(v) > 0, "Enter a valid depth in feet"),
+});
+type NewRequestForm = z.infer<typeof newRequestSchema>;
 
 export function CustomerHome({ navigation }: NativeStackScreenProps<CustomerStackParams, "CustomerHome">) {
   const [requests, setRequests] = useState<RequestRow[]>([]);
@@ -92,70 +109,149 @@ export function CustomerHome({ navigation }: NativeStackScreenProps<CustomerStac
 }
 
 export function NewRequest({ navigation }: NativeStackScreenProps<CustomerStackParams, "NewRequest">) {
-  const [district, setDistrict] = useState("");
-  const [mandal, setMandal] = useState("");
-  const [landType, setLandType] = useState<(typeof LAND_TYPES)[number]>("Agriculture");
-  const [depth, setDepth] = useState("");
-  const [error, setError] = useState("");
+  const {
+    control,
+    handleSubmit,
+    formState: { errors },
+  } = useForm<NewRequestForm>({
+    resolver: zodResolver(newRequestSchema),
+    defaultValues: { country: "India", state: "", district: "", mandal: "", landType: "Agriculture", depth: "" },
+  });
 
-  const next = () => {
-    if (!district.trim() || !mandal.trim()) return setError("Enter district and mandal/area");
-    const depthFt = Number(depth);
-    if (!depthFt || depthFt <= 0) return setError("Enter the expected depth in feet");
-    setError("");
-    navigation.navigate("SelectLocation", { district: district.trim(), mandal: mandal.trim(), landType, depthFt });
+  const onSubmit = (data: NewRequestForm) => {
+    navigation.navigate("SelectLocation", {
+      country: data.country.trim(),
+      state: data.state.trim(),
+      district: data.district.trim(),
+      mandal: data.mandal.trim(),
+      landType: data.landType,
+      depthFt: Number(data.depth),
+    });
   };
 
   return (
     <ScrollView style={{ flex: 1, backgroundColor: c.bg }} contentContainerStyle={{ padding: 20 }}>
       <ScreenTitle title="New Request" onBack={() => navigation.goBack()} />
+      <FieldLabel>COUNTRY</FieldLabel>
+      <Controller
+        control={control}
+        name="country"
+        render={({ field: { value, onChange } }) => <Field value={value} onChangeText={onChange} placeholder="e.g. India" />}
+      />
+      <ErrorText>{errors.country?.message}</ErrorText>
+      <FieldLabel>STATE</FieldLabel>
+      <Controller
+        control={control}
+        name="state"
+        render={({ field: { value, onChange } }) => <Field value={value} onChangeText={onChange} placeholder="e.g. Telangana" />}
+      />
+      <ErrorText>{errors.state?.message}</ErrorText>
       <FieldLabel>DISTRICT</FieldLabel>
-      <Field value={district} onChangeText={setDistrict} placeholder="e.g. Sangareddy" />
+      <Controller
+        control={control}
+        name="district"
+        render={({ field: { value, onChange } }) => <Field value={value} onChangeText={onChange} placeholder="e.g. Sangareddy" />}
+      />
+      <ErrorText>{errors.district?.message}</ErrorText>
       <FieldLabel>MANDAL / AREA</FieldLabel>
-      <Field value={mandal} onChangeText={setMandal} placeholder="e.g. Patancheru" />
+      <Controller
+        control={control}
+        name="mandal"
+        render={({ field: { value, onChange } }) => <Field value={value} onChangeText={onChange} placeholder="e.g. Patancheru" />}
+      />
+      <ErrorText>{errors.mandal?.message}</ErrorText>
       <FieldLabel>LAND TYPE</FieldLabel>
-      <View style={{ flexDirection: "row", gap: 8, flexWrap: "wrap", marginBottom: 14 }}>
-        {LAND_TYPES.map((t) => {
-          const active = landType === t;
-          return (
-            <Pressable
-              key={t}
-              onPress={() => setLandType(t)}
-              style={{
-                paddingVertical: 10,
-                paddingHorizontal: 14,
-                borderRadius: 999,
-                backgroundColor: active ? c.navy : "#fff",
-                borderWidth: active ? 0 : 1,
-                borderColor: c.border,
-              }}
-            >
-              <Text style={{ fontSize: 13, fontFamily: font.semibold, color: active ? "#fff" : "#333" }}>{t}</Text>
-            </Pressable>
-          );
-        })}
-      </View>
+      <Controller
+        control={control}
+        name="landType"
+        render={({ field: { value, onChange } }) => (
+          <View style={{ flexDirection: "row", gap: 8, flexWrap: "wrap", marginBottom: 14 }}>
+            {LAND_TYPES.map((t) => {
+              const active = value === t;
+              return (
+                <Pressable
+                  key={t}
+                  onPress={() => onChange(t)}
+                  style={{
+                    paddingVertical: 10,
+                    paddingHorizontal: 14,
+                    borderRadius: 999,
+                    backgroundColor: active ? c.navy : "#fff",
+                    borderWidth: active ? 0 : 1,
+                    borderColor: c.border,
+                  }}
+                >
+                  <Text style={{ fontSize: 13, fontFamily: font.semibold, color: active ? "#fff" : "#333" }}>{t}</Text>
+                </Pressable>
+              );
+            })}
+          </View>
+        )}
+      />
       <FieldLabel>EXPECTED DEPTH (FT)</FieldLabel>
-      <Field value={depth} onChangeText={setDepth} keyboardType="number-pad" placeholder="e.g. 350" style={{ marginBottom: 8 }} />
-      <ErrorText>{error}</ErrorText>
-      <PrimaryButton title="Next: Select Location" onPress={next} style={{ marginTop: 14 }} />
+      <Controller
+        control={control}
+        name="depth"
+        render={({ field: { value, onChange } }) => (
+          <Field
+            value={value}
+            onChangeText={onChange}
+            keyboardType="number-pad"
+            placeholder="e.g. 350"
+            style={{ marginBottom: 8 }}
+          />
+        )}
+      />
+      <ErrorText>{errors.depth?.message}</ErrorText>
+      <PrimaryButton title="Next: Select Location" onPress={handleSubmit(onSubmit)} style={{ marginTop: 14 }} />
     </ScrollView>
   );
 }
 
 export function SelectLocation({ navigation, route }: NativeStackScreenProps<CustomerStackParams, "SelectLocation">) {
-  const { district, mandal, landType, depthFt } = route.params;
+  const { country, state, district, mandal, landType, depthFt } = route.params;
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
-  // Prototype ships a static pin; real geo-picking can swap in expo-location + a map SDK later.
-  const lat = 17.5301;
-  const lng = 78.1246;
+  const [locating, setLocating] = useState(true);
+  const [coords, setCoords] = useState<{ lat: number; lng: number } | null>(null);
+
+  const fetchLocation = useCallback(async () => {
+    setLocating(true);
+    setError("");
+    try {
+      const { status } = await Location.requestForegroundPermissionsAsync();
+      if (status !== "granted") {
+        setError("Location permission denied — enable it in your device settings to capture the site's GPS location.");
+        return;
+      }
+      const pos = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.High });
+      setCoords({ lat: pos.coords.latitude, lng: pos.coords.longitude });
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Failed to get GPS location");
+    } finally {
+      setLocating(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchLocation();
+  }, [fetchLocation]);
 
   const confirm = async () => {
+    if (!coords) return setError("Waiting for GPS location — make sure location services are enabled.");
     setBusy(true);
     setError("");
     try {
-      const req = await api.createRequest({ district, mandal, landType, depthFt, lat, lng });
+      const req = await api.createRequest({
+        country,
+        state,
+        district,
+        mandal,
+        landType,
+        depthFt,
+        lat: coords.lat,
+        lng: coords.lng,
+      });
       navigation.reset({
         index: 1,
         routes: [{ name: "CustomerHome" }, { name: "Quotations", params: { requestId: req.id, code: req.code } }],
@@ -180,29 +276,31 @@ export function SelectLocation({ navigation, route }: NativeStackScreenProps<Cus
           backgroundColor: "#fff",
         }}
       >
-        <Text style={{ fontSize: 14, color: c.mutedLight, fontFamily: font.regular }}>Search location</Text>
+        <Text style={{ fontSize: 14, color: c.mutedLight, fontFamily: font.regular }}>
+          {locating ? "Fetching your site's GPS location…" : "Site GPS location"}
+        </Text>
       </View>
-      <StripedPlaceholder label="MAP PREVIEW" style={{ height: 220, marginBottom: 14 }}>
-      </StripedPlaceholder>
-      <View style={{ position: "relative", marginTop: -140, alignItems: "center", marginBottom: 96 }}>
-        <Svg width={34} height={46} viewBox="0 0 34 46">
-          <Path
-            d="M17 0C7.6 0 0 7.6 0 17c0 12.7 17 29 17 29s17-16.3 17-29C34 7.6 26.4 0 17 0z"
-            fill={c.orange}
-          />
-          <Circle cx={17} cy={17} r={7} fill="#fff" />
-        </Svg>
-      </View>
+      {coords && (
+        <SelectLocationMap
+          lat={coords.lat}
+          lng={coords.lng}
+          onChange={(next) => setCoords(next)}
+        />
+      )}
       <Card style={{ marginBottom: 22 }}>
         <Text style={{ fontFamily: font.bold, fontSize: 14, color: c.text }}>
           {mandal}, {district}
         </Text>
         <Text style={{ fontSize: 12, color: c.muted, marginTop: 4, fontFamily: font.regular }}>
-          Telangana · Lat {lat}, Long {lng}
+          {state}, {country}
+          {coords ? ` · Lat ${coords.lat.toFixed(5)}, Long ${coords.lng.toFixed(5)}` : ""}
         </Text>
       </Card>
       <ErrorText>{error}</ErrorText>
-      <PrimaryButton title="Confirm Location" onPress={confirm} busy={busy} />
+      {!locating && !coords && (
+        <PrimaryButton title="Retry GPS Location" onPress={fetchLocation} style={{ marginBottom: 12 }} />
+      )}
+      <PrimaryButton title="Confirm Location" onPress={confirm} busy={busy || locating} />
     </ScrollView>
   );
 }

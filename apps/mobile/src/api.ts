@@ -61,6 +61,8 @@ export interface RankedQuote {
 export interface RequestRow {
   id: string;
   code: string;
+  country: string;
+  state: string;
   district: string;
   mandal: string;
   status: string;
@@ -99,9 +101,10 @@ export interface Invoice {
 export interface Lead {
   id: string;
   code: string;
+  country: string;
+  state: string;
   district: string;
   mandal: string;
-  state: string;
   landType: string;
   depthFt: number;
   preferredDate: string;
@@ -126,6 +129,7 @@ export interface CompanyProfile {
   name: string;
   ownerName: string;
   phone: string;
+  address: string;
   city: string;
   state: string;
   experienceYears: number;
@@ -134,6 +138,14 @@ export interface CompanyProfile {
   machineType: string;
   status: "PENDING" | "VERIFIED";
   vehiclePhotos: { slot: string; url: string }[];
+  borewellPhotos: { id: string; url: string }[];
+}
+
+export interface CustomerProfile {
+  id: string;
+  phone: string;
+  name: string | null;
+  address: string | null;
 }
 
 export const api = {
@@ -141,10 +153,15 @@ export const api = {
   customerRequestOtp: (phone: string) =>
     req<{ ok: true; devHint?: string }>("/auth/customer/otp/request", { method: "POST", body: JSON.stringify({ phone }) }),
   customerVerifyOtp: (phone: string, code: string) =>
-    req<{ token: string; customer: { id: string; name: string | null } }>("/auth/customer/otp/verify", {
+    req<{ token: string; customer: CustomerProfile; isNew: boolean }>("/auth/customer/otp/verify", {
       method: "POST",
       body: JSON.stringify({ phone, code }),
     }),
+
+  // customer profile
+  customerProfile: () => req<CustomerProfile>("/customer/profile", {}, "customer"),
+  updateCustomerProfile: (data: { name: string; address: string }) =>
+    req<CustomerProfile>("/customer/profile", { method: "PATCH", body: JSON.stringify(data) }, "customer"),
 
   // customer flow
   createRequest: (data: object) =>
@@ -189,4 +206,8 @@ export const api = {
   updateProfile: (data: object) => req<CompanyProfile>("/owner/profile", { method: "PATCH", body: JSON.stringify(data) }, "owner"),
   uploadVehiclePhoto: (slot: string, url: string) =>
     req("/owner/profile/photos", { method: "PUT", body: JSON.stringify({ slot, url }) }, "owner"),
+  addBorewellPhoto: (url: string) =>
+    req<{ id: string; url: string }>("/owner/profile/borewell-photos", { method: "POST", body: JSON.stringify({ url }) }, "owner"),
+  removeBorewellPhoto: (id: string) =>
+    req<{ ok: true }>(`/owner/profile/borewell-photos/${id}`, { method: "DELETE" }, "owner"),
 };

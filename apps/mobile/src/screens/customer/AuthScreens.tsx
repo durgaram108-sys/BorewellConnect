@@ -1,10 +1,20 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { ImageBackground, KeyboardAvoidingView, Platform, ScrollView, Text, TextInput, View } from "react-native";
 import { NativeStackScreenProps } from "@react-navigation/native-stack";
-import { api, setCustomerToken } from "../../api";
+import { Controller, useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { z } from "zod";
+import { api, setCustomerToken, CustomerProfile } from "../../api";
+import { showToast } from "../../components/Toast";
 import { c, font } from "../../theme";
-import { PrimaryButton, ErrorText, ScreenTitle } from "../../components/ui";
+import { Field, FieldLabel, LoadingScreen, PrimaryButton, ErrorText, ScreenTitle } from "../../components/ui";
 import type { CustomerStackParams } from "../../navigation";
+
+const completeProfileSchema = z.object({
+  name: z.string().min(1, "Enter your name"),
+  address: z.string().min(1, "Enter your address"),
+});
+type CompleteProfileForm = z.infer<typeof completeProfileSchema>;
 
 const bg = require("../../../assets/login-borewell-bg.png");
 
@@ -97,9 +107,12 @@ export function CustomerOtp({ navigation, route }: NativeStackScreenProps<Custom
     setBusy(true);
     setError("");
     try {
-      const { token } = await api.customerVerifyOtp(phone, code);
+      const { token, isNew } = await api.customerVerifyOtp(phone, code);
       await setCustomerToken(token);
-      navigation.reset({ index: 0, routes: [{ name: "CustomerHome" }] });
+      navigation.reset({
+        index: isNew ? 1 : 0,
+        routes: isNew ? [{ name: "CustomerHome" }, { name: "CompleteProfile" }] : [{ name: "CustomerHome" }],
+      });
     } catch (e) {
       setError(e instanceof Error ? e.message : "Verification failed");
     } finally {
@@ -137,6 +150,77 @@ export function CustomerOtp({ navigation, route }: NativeStackScreenProps<Custom
       </Text>
       <ErrorText>{error}</ErrorText>
       <PrimaryButton title="Verify OTP" onPress={verify} busy={busy} style={{ marginTop: 26 }} />
+    </ScrollView>
+  );
+}
+
+export function CompleteProfile({ navigation }: NativeStackScreenProps<CustomerStackParams, "CompleteProfile">) {
+  const [profile, setProfile] = useState<CustomerProfile | null>(null);
+  const [error, setError] = useState("");
+  const [busy, setBusy] = useState(false);
+
+  useEffect(() => {
+    api.customerProfile().then(setProfile);
+  }, []);
+
+  const {
+    control,
+    handleSubmit,
+    formState: { errors },
+  } = useForm<CompleteProfileForm>({
+    resolver: zodResolver(completeProfileSchema),
+    values: profile ? { name: profile.name ?? "", address: profile.address ?? "" } : undefined,
+  });
+
+  const save = async (data: CompleteProfileForm) => {
+    setBusy(true);
+    setError("");
+    try {
+      await api.updateCustomerProfile({ name: data.name.trim(), address: data.address.trim() });
+      showToast("Profile saved");
+      navigation.goBack();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Failed to save");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  if (!profile) return <LoadingScreen />;
+
+  return (
+    <ScrollView style={{ flex: 1, backgroundColor: c.bg }} contentContainerStyle={{ padding: 20 }}>
+      <ScreenTitle title="Complete Your Profile" onBack={() => navigation.goBack()} />
+      <Text style={{ fontSize: 13, color: c.muted, marginBottom: 18, fontFamily: font.regular }}>
+        A few details so borewell companies and support can reach you correctly.
+      </Text>
+      <FieldLabel>FULL NAME</FieldLabel>
+      <Controller
+        control={control}
+        name="name"
+        render={({ field: { value, onChange } }) => <Field value={value} onChangeText={onChange} placeholder="e.g. Ramesh Reddy" />}
+      />
+      <ErrorText>{errors.name?.message}</ErrorText>
+      <FieldLabel>ADDRESS</FieldLabel>
+      <Controller
+        control={control}
+        name="address"
+        render={({ field: { value, onChange } }) => (
+          <Field
+            value={value}
+            onChangeText={onChange}
+            placeholder="e.g. 12-3-45 Main Road, Patancheru"
+            multiline
+            style={{ minHeight: 80, textAlignVertical: "top", marginBottom: 8 }}
+          />
+        )}
+      />
+      <ErrorText>{errors.address?.message}</ErrorText>
+      <Text style={{ fontSize: 12, color: c.mutedLight, marginBottom: 14, fontFamily: font.regular }}>
+        Mobile: +91 {profile.phone}
+      </Text>
+      <ErrorText>{error}</ErrorText>
+      <PrimaryButton title="Save & Continue" onPress={handleSubmit(save)} busy={busy} />
     </ScrollView>
   );
 }

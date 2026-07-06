@@ -5,6 +5,7 @@ import { useFocusEffect } from "@react-navigation/native";
 import Svg, { Circle, Path } from "react-native-svg";
 import { WebView } from "react-native-webview";
 import { api, RankedQuote } from "../../api";
+import { showToast } from "../../components/Toast";
 import { c, font, inr } from "../../theme";
 import { Card, PrimaryButton, ErrorText, ScreenTitle } from "../../components/ui";
 import type { CustomerStackParams } from "../../navigation";
@@ -196,6 +197,7 @@ export function Payment({ navigation, route }: NativeStackScreenProps<CustomerSt
           razorpayPaymentId: paymentId,
           razorpaySignature: `mock_sig_${paymentId}`,
         });
+        showToast("Payment successful");
         navigation.reset({
           index: 1,
           routes: [{ name: "CustomerHome" }, { name: "Tracking", params: { bookingId } }],
@@ -220,6 +222,7 @@ export function Payment({ navigation, route }: NativeStackScreenProps<CustomerSt
           razorpaySignature: msg.razorpay_signature,
         });
         setCheckout(null);
+        showToast("Payment successful");
         navigation.reset({
           index: 1,
           routes: [{ name: "CustomerHome" }, { name: "Tracking", params: { bookingId } }],

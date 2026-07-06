@@ -17,6 +17,14 @@
     },
     "web": {
       "bundler": "metro"
-    }
+    },
+    "plugins": [
+      [
+        "expo-location",
+        {
+          "locationAlwaysAndWhenInUsePermission": "Borewell Connect uses your location to record the GPS coordinates of the drilling site."
+        }
+      ]
+    ]
   }
 }

@@ -2,11 +2,27 @@ import React, { useCallback, useState } from "react";
 import { Image, Pressable, ScrollView, Text, TextInput, View } from "react-native";
 import { NativeStackScreenProps } from "@react-navigation/native-stack";
 import { useFocusEffect } from "@react-navigation/native";
+import { Controller, useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { z } from "zod";
 import * as ImagePicker from "expo-image-picker";
 import { api, CompanyProfile, Lead, OwnerJob, setOwnerToken } from "../../api";
 import { c, font, inr, statusColor, statusLabel } from "../../theme";
-import { Card, Field, FieldLabel, PrimaryButton, ErrorText, ScreenTitle } from "../../components/ui";
+import { Card, Field, FieldLabel, LoadingScreen, PrimaryButton, ErrorText, ScreenTitle } from "../../components/ui";
+import { showToast } from "../../components/Toast";
 import type { OwnerStackParams } from "../../navigation";
+
+const editProfileSchema = z.object({
+  name: z.string().min(1, "Enter company name"),
+  ownerName: z.string().min(1, "Enter owner name"),
+  address: z.string().optional(),
+  city: z.string().min(1, "Enter city"),
+  experienceYears: z.string().refine((v) => v.trim() !== "" && !isNaN(Number(v)) && Number(v) >= 0, "Enter valid years"),
+  registrationNumber: z.string().optional(),
+  serviceAreas: z.string(),
+  machineType: z.string().min(1, "Enter machine type"),
+});
+type EditProfileForm = z.infer<typeof editProfileSchema>;
 
 export function OwnerLogin({ navigation }: NativeStackScreenProps<OwnerStackParams, "OwnerLogin">) {
   const [phone, setPhone] = useState("");
@@ -235,7 +251,7 @@ export function NewLeads({ navigation }: NativeStackScreenProps<OwnerStackParams
         <Card key={l.id} style={{ padding: 16, marginBottom: 14 }}>
           <Text style={{ fontSize: 16, fontFamily: font.extrabold, color: c.text }}>{l.code}</Text>
           <Text style={{ fontSize: 13, color: c.muted, marginTop: 8, fontFamily: font.regular }}>
-            📍 {l.district}, {l.state}
+            📍 {l.district}, {l.state}, {l.country}
           </Text>
           <Text style={{ fontSize: 13, color: c.muted, marginTop: 6, fontFamily: font.regular }}>Land Type: {l.landType}</Text>
           <Text style={{ fontSize: 13, color: c.muted, marginTop: 6, fontFamily: font.regular }}>
@@ -366,7 +382,7 @@ export function JobUpdate({ navigation, route }: NativeStackScreenProps<OwnerSta
 
   useFocusEffect(load);
 
-  if (!job) return <View style={{ flex: 1, backgroundColor: c.bg }} />;
+  if (!job) return <LoadingScreen />;
 
   const next = job.milestones.find((m) => !m.completedAt);
 
@@ -492,9 +508,31 @@ export function OwnerProfile({ navigation }: NativeStackScreenProps<OwnerStackPa
     await api.uploadVehiclePhoto(slot, dataUri);
     const fresh = await api.profile();
     setProfile(fresh);
+    showToast("Photo updated");
   };
 
-  if (!profile) return <View style={{ flex: 1, backgroundColor: c.bg }} />;
+  const pickBorewellPhoto = async () => {
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      quality: 0.5,
+      base64: true,
+    });
+    if (result.canceled || !result.assets[0]?.base64) return;
+    const dataUri = `data:image/jpeg;base64,${result.assets[0].base64}`;
+    await api.addBorewellPhoto(dataUri);
+    const fresh = await api.profile();
+    setProfile(fresh);
+    showToast("Photo added");
+  };
+
+  const removeBorewellPhoto = async (id: string) => {
+    await api.removeBorewellPhoto(id);
+    const fresh = await api.profile();
+    setProfile(fresh);
+    showToast("Photo removed");
+  };
+
+  if (!profile) return <LoadingScreen />;
 
   return (
     <ScrollView style={{ flex: 1, backgroundColor: c.bg }} contentContainerStyle={{ padding: 20 }}>
@@ -525,6 +563,9 @@ export function OwnerProfile({ navigation }: NativeStackScreenProps<OwnerStackPa
           Owner: {profile.ownerName || "—"}
         </Text>
         <Text style={{ fontSize: 13, color: c.muted, marginTop: 6, fontFamily: font.regular }}>{profile.phone}</Text>
+        {!!profile.address && (
+          <Text style={{ fontSize: 13, color: c.muted, marginTop: 6, fontFamily: font.regular }}>{profile.address}</Text>
+        )}
         <Text style={{ fontSize: 13, color: c.muted, marginTop: 6, fontFamily: font.regular }}>
           {profile.city}, {profile.state}
         </Text>
@@ -579,6 +620,53 @@ export function OwnerProfile({ navigation }: NativeStackScreenProps<OwnerStackPa
           );
         })}
       </View>
+
+      <Text style={{ fontSize: 12, fontFamily: font.bold, color: c.muted, marginBottom: 8 }}>
+        BOREWELL WORK PHOTOS
+      </Text>
+      <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 10, marginBottom: 20 }}>
+        {profile.borewellPhotos.map((photo) => (
+          <View key={photo.id} style={{ width: 90, height: 90 }}>
+            <Image source={{ uri: photo.url }} style={{ width: 90, height: 90, borderRadius: 10 }} />
+            <Pressable
+              onPress={() => removeBorewellPhoto(photo.id)}
+              hitSlop={8}
+              style={{
+                position: "absolute",
+                top: -6,
+                right: -6,
+                width: 22,
+                height: 22,
+                borderRadius: 11,
+                backgroundColor: c.navy,
+                alignItems: "center",
+                justifyContent: "center",
+              }}
+            >
+              <Text style={{ color: "#fff", fontSize: 13, fontFamily: font.bold, lineHeight: 14 }}>×</Text>
+            </Pressable>
+          </View>
+        ))}
+        <Pressable
+          onPress={pickBorewellPhoto}
+          style={{
+            width: 90,
+            height: 90,
+            borderRadius: 10,
+            backgroundColor: "#EFEDE8",
+            alignItems: "center",
+            justifyContent: "center",
+            borderWidth: 1,
+            borderColor: c.border,
+            borderStyle: "dashed",
+          }}
+        >
+          <Text style={{ fontSize: 11, color: c.muted, fontFamily: font.regular, textAlign: "center" }}>
+            + Add{"\n"}Photo
+          </Text>
+        </Pressable>
+      </View>
+
       <PrimaryButton title="Edit Profile" outline onPress={() => navigation.navigate("EditProfile")} />
     </ScrollView>
   );
@@ -595,21 +683,43 @@ export function EditProfile({ navigation }: NativeStackScreenProps<OwnerStackPar
     }, [])
   );
 
-  if (!profile) return <View style={{ flex: 1, backgroundColor: c.bg }} />;
+  const {
+    control,
+    handleSubmit,
+    formState: { errors },
+  } = useForm<EditProfileForm>({
+    resolver: zodResolver(editProfileSchema),
+    values: profile
+      ? {
+          name: profile.name,
+          ownerName: profile.ownerName,
+          address: profile.address,
+          city: profile.city,
+          experienceYears: String(profile.experienceYears),
+          registrationNumber: profile.registrationNumber,
+          serviceAreas: profile.serviceAreas.join(", "),
+          machineType: profile.machineType,
+        }
+      : undefined,
+  });
 
-  const save = async () => {
+  if (!profile) return <LoadingScreen />;
+
+  const save = async (data: EditProfileForm) => {
     setBusy(true);
     setError("");
     try {
       await api.updateProfile({
-        name: profile.name,
-        ownerName: profile.ownerName,
-        city: profile.city,
-        experienceYears: profile.experienceYears,
-        registrationNumber: profile.registrationNumber,
-        serviceAreas: profile.serviceAreas,
-        machineType: profile.machineType,
+        name: data.name,
+        ownerName: data.ownerName,
+        address: data.address,
+        city: data.city,
+        experienceYears: Number(data.experienceYears),
+        registrationNumber: data.registrationNumber,
+        serviceAreas: data.serviceAreas.split(",").map((s) => s.trim()).filter(Boolean),
+        machineType: data.machineType,
       });
+      showToast("Profile saved");
       navigation.goBack();
     } catch (e) {
       setError(e instanceof Error ? e.message : "Failed to save");
@@ -618,34 +728,64 @@ export function EditProfile({ navigation }: NativeStackScreenProps<OwnerStackPar
     }
   };
 
-  const set = (patch: Partial<CompanyProfile>) => setProfile({ ...profile, ...patch });
-
   return (
     <ScrollView style={{ flex: 1, backgroundColor: c.bg }} contentContainerStyle={{ padding: 20 }}>
       <ScreenTitle title="Edit Profile" onBack={() => navigation.goBack()} />
       <FieldLabel>COMPANY NAME</FieldLabel>
-      <Field value={profile.name} onChangeText={(v) => set({ name: v })} />
+      <Controller control={control} name="name" render={({ field: { value, onChange } }) => <Field value={value} onChangeText={onChange} />} />
+      <ErrorText>{errors.name?.message}</ErrorText>
       <FieldLabel>OWNER NAME</FieldLabel>
-      <Field value={profile.ownerName} onChangeText={(v) => set({ ownerName: v })} />
-      <FieldLabel>CITY</FieldLabel>
-      <Field value={profile.city} onChangeText={(v) => set({ city: v })} />
-      <FieldLabel>EXPERIENCE (YEARS)</FieldLabel>
-      <Field
-        value={String(profile.experienceYears)}
-        onChangeText={(v) => set({ experienceYears: Number(v) || 0 })}
-        keyboardType="number-pad"
+      <Controller
+        control={control}
+        name="ownerName"
+        render={({ field: { value, onChange } }) => <Field value={value} onChangeText={onChange} />}
       />
+      <ErrorText>{errors.ownerName?.message}</ErrorText>
+      <FieldLabel>ADDRESS (WHERE YOU OPERATE)</FieldLabel>
+      <Controller
+        control={control}
+        name="address"
+        render={({ field: { value, onChange } }) => (
+          <Field
+            value={value}
+            onChangeText={onChange}
+            placeholder="e.g. Plot 21, Industrial Area, Patancheru"
+            multiline
+            style={{ minHeight: 70, textAlignVertical: "top" }}
+          />
+        )}
+      />
+      <FieldLabel>CITY</FieldLabel>
+      <Controller control={control} name="city" render={({ field: { value, onChange } }) => <Field value={value} onChangeText={onChange} />} />
+      <ErrorText>{errors.city?.message}</ErrorText>
+      <FieldLabel>EXPERIENCE (YEARS)</FieldLabel>
+      <Controller
+        control={control}
+        name="experienceYears"
+        render={({ field: { value, onChange } }) => <Field value={value} onChangeText={onChange} keyboardType="number-pad" />}
+      />
+      <ErrorText>{errors.experienceYears?.message}</ErrorText>
       <FieldLabel>REGISTRATION NUMBER</FieldLabel>
-      <Field value={profile.registrationNumber} onChangeText={(v) => set({ registrationNumber: v })} />
+      <Controller
+        control={control}
+        name="registrationNumber"
+        render={({ field: { value, onChange } }) => <Field value={value} onChangeText={onChange} />}
+      />
       <FieldLabel>SERVICE AREAS (COMMA-SEPARATED)</FieldLabel>
-      <Field
-        value={profile.serviceAreas.join(", ")}
-        onChangeText={(v) => set({ serviceAreas: v.split(",").map((s) => s.trim()).filter(Boolean) })}
+      <Controller
+        control={control}
+        name="serviceAreas"
+        render={({ field: { value, onChange } }) => <Field value={value} onChangeText={onChange} />}
       />
       <FieldLabel>MACHINE TYPE</FieldLabel>
-      <Field value={profile.machineType} onChangeText={(v) => set({ machineType: v })} style={{ marginBottom: 22 }} />
+      <Controller
+        control={control}
+        name="machineType"
+        render={({ field: { value, onChange } }) => <Field value={value} onChangeText={onChange} style={{ marginBottom: 22 }} />}
+      />
+      <ErrorText>{errors.machineType?.message}</ErrorText>
       <ErrorText>{error}</ErrorText>
-      <PrimaryButton title="Save Profile" onPress={save} busy={busy} />
+      <PrimaryButton title="Save Profile" onPress={handleSubmit(save)} busy={busy} />
     </ScrollView>
   );
 }

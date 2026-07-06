@@ -5,7 +5,7 @@ import { useFocusEffect } from "@react-navigation/native";
 import Svg, { Path } from "react-native-svg";
 import { api, BookingDetail } from "../../api";
 import { c, font, inr, statusColor, statusLabel } from "../../theme";
-import { Card, PrimaryButton, ErrorText, ScreenTitle, StripedPlaceholder } from "../../components/ui";
+import { Card, LoadingScreen, PrimaryButton, ErrorText, ScreenTitle, StripedPlaceholder } from "../../components/ui";
 import type { CustomerStackParams } from "../../navigation";
 
 function useBooking(bookingId: string) {
@@ -23,7 +23,7 @@ const fmtTime = (iso: string) =>
 
 export function Tracking({ navigation, route }: NativeStackScreenProps<CustomerStackParams, "Tracking">) {
   const booking = useBooking(route.params.bookingId);
-  if (!booking) return <View style={{ flex: 1, backgroundColor: c.bg }} />;
+  if (!booking) return <LoadingScreen />;
 
   const rows: { label: string; time?: string; state: "done" | "current" | "todo" }[] = [
     { label: "Booking Confirmed", time: fmtTime(booking.milestones[0]?.completedAt ?? new Date().toISOString()), state: "done" },
@@ -77,7 +77,7 @@ export function Tracking({ navigation, route }: NativeStackScreenProps<CustomerS
 
 export function JobDetails({ navigation, route }: NativeStackScreenProps<CustomerStackParams, "JobDetails">) {
   const booking = useBooking(route.params.bookingId);
-  if (!booking) return <View style={{ flex: 1, backgroundColor: c.bg }} />;
+  if (!booking) return <LoadingScreen />;
 
   return (
     <ScrollView style={{ flex: 1, backgroundColor: c.bg }} contentContainerStyle={{ padding: 20 }}>
@@ -105,7 +105,7 @@ export function JobDetails({ navigation, route }: NativeStackScreenProps<Custome
 
 export function WorkUpdates({ navigation, route }: NativeStackScreenProps<CustomerStackParams, "WorkUpdates">) {
   const booking = useBooking(route.params.bookingId);
-  if (!booking) return <View style={{ flex: 1, backgroundColor: c.bg }} />;
+  if (!booking) return <LoadingScreen />;
 
   return (
     <ScrollView style={{ flex: 1, backgroundColor: c.bg }} contentContainerStyle={{ padding: 20 }}>
@@ -137,7 +137,7 @@ export function WorkUpdates({ navigation, route }: NativeStackScreenProps<Custom
 
 export function InvoiceScreen({ navigation, route }: NativeStackScreenProps<CustomerStackParams, "Invoice">) {
   const booking = useBooking(route.params.bookingId);
-  if (!booking?.invoice) return <View style={{ flex: 1, backgroundColor: c.bg }} />;
+  if (!booking?.invoice) return <LoadingScreen />;
   const inv = booking.invoice;
 
   return (
