@@ -92,18 +92,27 @@ export function CustomerHome({ navigation }: NativeStackScreenProps<CustomerStac
 }
 
 export function NewRequest({ navigation }: NativeStackScreenProps<CustomerStackParams, "NewRequest">) {
-  const [district, setDistrict] = useState("Sangareddy");
-  const [mandal, setMandal] = useState("Patancheru");
+  const [district, setDistrict] = useState("");
+  const [mandal, setMandal] = useState("");
   const [landType, setLandType] = useState<(typeof LAND_TYPES)[number]>("Agriculture");
-  const [depth, setDepth] = useState("350");
+  const [depth, setDepth] = useState("");
+  const [error, setError] = useState("");
+
+  const next = () => {
+    if (!district.trim() || !mandal.trim()) return setError("Enter district and mandal/area");
+    const depthFt = Number(depth);
+    if (!depthFt || depthFt <= 0) return setError("Enter the expected depth in feet");
+    setError("");
+    navigation.navigate("SelectLocation", { district: district.trim(), mandal: mandal.trim(), landType, depthFt });
+  };
 
   return (
     <ScrollView style={{ flex: 1, backgroundColor: c.bg }} contentContainerStyle={{ padding: 20 }}>
       <ScreenTitle title="New Request" onBack={() => navigation.goBack()} />
       <FieldLabel>DISTRICT</FieldLabel>
-      <Field value={district} onChangeText={setDistrict} />
+      <Field value={district} onChangeText={setDistrict} placeholder="e.g. Sangareddy" />
       <FieldLabel>MANDAL / AREA</FieldLabel>
-      <Field value={mandal} onChangeText={setMandal} />
+      <Field value={mandal} onChangeText={setMandal} placeholder="e.g. Patancheru" />
       <FieldLabel>LAND TYPE</FieldLabel>
       <View style={{ flexDirection: "row", gap: 8, flexWrap: "wrap", marginBottom: 14 }}>
         {LAND_TYPES.map((t) => {
@@ -127,13 +136,9 @@ export function NewRequest({ navigation }: NativeStackScreenProps<CustomerStackP
         })}
       </View>
       <FieldLabel>EXPECTED DEPTH (FT)</FieldLabel>
-      <Field value={depth} onChangeText={setDepth} keyboardType="number-pad" style={{ marginBottom: 22 }} />
-      <PrimaryButton
-        title="Next: Select Location"
-        onPress={() =>
-          navigation.navigate("SelectLocation", { district, mandal, landType, depthFt: Number(depth) || 0 })
-        }
-      />
+      <Field value={depth} onChangeText={setDepth} keyboardType="number-pad" placeholder="e.g. 350" style={{ marginBottom: 8 }} />
+      <ErrorText>{error}</ErrorText>
+      <PrimaryButton title="Next: Select Location" onPress={next} style={{ marginTop: 14 }} />
     </ScrollView>
   );
 }

@@ -9,7 +9,7 @@ const card: React.CSSProperties = {
 };
 
 function Login({ onDone }: { onDone: () => void }) {
-  const [email, setEmail] = useState("admin@borewellconnect.com");
+  const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
@@ -49,7 +49,7 @@ function Login({ onDone }: { onDone: () => void }) {
           <div style={{ fontSize: 12, color: c.muted, marginTop: 6 }}>Admin Portal Login</div>
         </div>
         <div style={label}>EMAIL</div>
-        <input style={input} value={email} onChange={(e) => setEmail(e.target.value)} autoComplete="username" />
+        <input style={input} value={email} onChange={(e) => setEmail(e.target.value)} autoComplete="username" placeholder="admin email" />
         <div style={label}>PASSWORD</div>
         <input
           style={{ ...input, marginBottom: 20 }}

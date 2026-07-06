@@ -94,9 +94,13 @@ export function OwnerOtp({ navigation, route }: NativeStackScreenProps<OwnerStac
     setBusy(true);
     setError("");
     try {
-      const { token } = await api.ownerVerifyOtp(phone, code);
+      const { token, isNew } = await api.ownerVerifyOtp(phone, code);
       await setOwnerToken(token);
-      navigation.reset({ index: 0, routes: [{ name: "OwnerDashboard" }] });
+      // First login: take the new company straight to Edit Profile to add details.
+      navigation.reset({
+        index: isNew ? 1 : 0,
+        routes: isNew ? [{ name: "OwnerDashboard" }, { name: "EditProfile" }] : [{ name: "OwnerDashboard" }],
+      });
     } catch (e) {
       setError(e instanceof Error ? e.message : "Verification failed");
     } finally {
@@ -256,17 +260,19 @@ export function NewLeads({ navigation }: NativeStackScreenProps<OwnerStackParams
 
 export function SubmitQuote({ navigation, route }: NativeStackScreenProps<OwnerStackParams, "SubmitQuote">) {
   const { requestId } = route.params;
-  const [price, setPrice] = useState("185");
+  const [price, setPrice] = useState("");
   const [machine, setMachine] = useState("DTH");
   const [eta, setEta] = useState("3–4 days");
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
 
   const submit = async () => {
+    const pricePerFt = Number(price);
+    if (!pricePerFt || pricePerFt <= 0) return setError("Enter your price per foot");
     setBusy(true);
     setError("");
     try {
-      await api.submitQuote(requestId, { pricePerFt: Number(price) || 0, machineType: machine, estimatedCompletion: eta });
+      await api.submitQuote(requestId, { pricePerFt, machineType: machine, estimatedCompletion: eta });
       navigation.reset({
         index: 1,
         routes: [{ name: "OwnerDashboard" }, { name: "ActiveJobs", params: { justSubmitted: true } }],
@@ -282,7 +288,7 @@ export function SubmitQuote({ navigation, route }: NativeStackScreenProps<OwnerS
     <ScrollView style={{ flex: 1, backgroundColor: c.bg }} contentContainerStyle={{ padding: 20 }}>
       <ScreenTitle title="Submit Quote" onBack={() => navigation.goBack()} />
       <FieldLabel>PRICE PER FT (₹)</FieldLabel>
-      <Field value={price} onChangeText={setPrice} keyboardType="number-pad" style={{ fontSize: 16 }} />
+      <Field value={price} onChangeText={setPrice} keyboardType="number-pad" placeholder="e.g. 185" style={{ fontSize: 16 }} />
       <FieldLabel>MACHINE TYPE</FieldLabel>
       <Field value={machine} onChangeText={setMachine} />
       <FieldLabel>ESTIMATED COMPLETION</FieldLabel>
@@ -411,27 +417,32 @@ export function Earnings(_props: NativeStackScreenProps<OwnerStackParams, "Earni
     }, [])
   );
 
-  const bars = [0.4, 0.65, 0.5, 1];
+  // Bars reflect the most recent payouts (oldest → newest), scaled to the largest.
+  const payouts = data?.recentPayouts ?? [];
+  const barAmounts = payouts.slice(0, 6).reverse().map((p) => p.amount);
+  const maxBar = Math.max(1, ...barAmounts);
 
   return (
     <ScrollView style={{ flex: 1, backgroundColor: c.bg }} contentContainerStyle={{ padding: 20 }}>
       <Text style={{ fontSize: 20, fontFamily: font.extrabold, paddingBottom: 14, color: c.text }}>Earnings</Text>
       <Text style={{ fontSize: 28, fontFamily: font.extrabold, color: c.green }}>{inr(data?.thisMonth ?? 0)}</Text>
       <Text style={{ fontSize: 12, color: c.muted, marginBottom: 20, fontFamily: font.regular }}>This month</Text>
-      <View style={{ flexDirection: "row", alignItems: "flex-end", gap: 10, height: 100, marginBottom: 24 }}>
-        {bars.map((h, i) => (
-          <View
-            key={i}
-            style={{
-              flex: 1,
-              backgroundColor: i === bars.length - 1 ? c.green : c.navy,
-              borderTopLeftRadius: 6,
-              borderTopRightRadius: 6,
-              height: `${h * 100}%`,
-            }}
-          />
-        ))}
-      </View>
+      {barAmounts.length > 0 && (
+        <View style={{ flexDirection: "row", alignItems: "flex-end", gap: 10, height: 100, marginBottom: 24 }}>
+          {barAmounts.map((amount, i) => (
+            <View
+              key={i}
+              style={{
+                flex: 1,
+                backgroundColor: i === barAmounts.length - 1 ? c.green : c.navy,
+                borderTopLeftRadius: 6,
+                borderTopRightRadius: 6,
+                height: `${Math.max(8, (amount / maxBar) * 100)}%`,
+              }}
+            />
+          ))}
+        </View>
+      )}
       <Text style={{ fontSize: 13, fontFamily: font.bold, marginBottom: 10, color: c.text }}>Recent Payouts</Text>
       {(data?.recentPayouts ?? []).map((p) => (
         <View
