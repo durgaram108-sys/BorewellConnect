@@ -1,0 +1,1001 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+
+<helmet>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@500;600;700;800&display=swap" rel="stylesheet">
+  <style>
+    body { margin: 0; }
+    ::-webkit-scrollbar { width: 0; height: 0; }
+  </style>
+</helmet>
+
+<div style="min-height:100vh;background:#F6F5F2;font-family:'Manrope',system-ui,sans-serif;color:#16181C;">
+
+  <!-- HEADER -->
+  <div style="position:sticky;top:0;z-index:100;display:flex;align-items:center;justify-content:space-between;padding:18px 40px;background:#0B2A4A;box-shadow:0 2px 12px rgba(0,0,0,0.15);flex-wrap:wrap;gap:14px;">
+    <div style="display:flex;align-items:baseline;gap:2px;">
+      <span style="font-size:20px;font-weight:800;color:#fff;letter-spacing:0.5px;">BOREWELL</span>
+      <span style="font-size:20px;font-weight:800;color:#1FA463;letter-spacing:0.5px;">CONNECT</span>
+    </div>
+    <div style="display:flex;gap:10px;">
+      <button style="{{ customerTabStyle }}" onClick="{{ selectCustomer }}">Customer Login</button>
+      <button style="{{ ownerTabStyle }}" onClick="{{ selectOwner }}">Borewell Owner Login</button>
+      <button style="{{ adminTabBtnStyle }}" onClick="{{ selectAdmin }}">Admin Portal</button>
+    </div>
+  </div>
+
+  <!-- MAIN -->
+  <div style="padding:56px 40px 100px;display:flex;justify-content:center;">
+
+    <!-- ================= CUSTOMER PANEL ================= -->
+    <div style="{{ customerPanelStyle }}" data-screen-label="Customer Login">
+      <div style="text-align:center;margin-bottom:22px;">
+        <div style="font-size:13px;font-weight:700;color:#6B7280;text-transform:uppercase;letter-spacing:1px;">Customer Login</div>
+        <div style="font-size:22px;font-weight:800;margin-top:4px;">{{ customerStepLabel }}</div>
+      </div>
+
+      <div style="display:flex;gap:6px;margin-bottom:26px;flex-wrap:wrap;justify-content:center;max-width:560px;">
+        <sc-for list="{{ customerStepsList }}" as="st" hint-placeholder-count="15">
+          <div style="{{ st.dotStyle }}" onClick="{{ st.onClick }}">{{ st.n }}</div>
+        </sc-for>
+      </div>
+
+      <x-import component-from-global-scope="IOSDevice" from="./ios-frame.jsx" width="{{ 390 }}" height="{{ 844 }}" hint-size="390,844">
+
+        <!-- STEP 0: LOGIN -->
+        <sc-if value="{{ steps.c0 }}" hint-placeholder-val="{{ true }}">
+          <div style="height:100%;overflow:auto;box-sizing:border-box;text-align:center;position:relative;background-image:linear-gradient(180deg, rgba(11,42,74,0.45) 0%, rgba(11,42,74,0.55) 45%, #F2F2F7 78%), url('login-borewell-bg.png');background-size:100% 320px, cover;background-position:top, center 30%;background-repeat:no-repeat;">
+            <div style="padding:54px 28px 0;">
+              <div style="font-size:26px;font-weight:800;color:#fff;letter-spacing:0.5px;text-shadow:0 2px 8px rgba(0,0,0,0.3);">BOREWELL</div>
+              <div style="font-size:26px;font-weight:800;color:#5EE39B;letter-spacing:0.5px;margin-top:-6px;text-shadow:0 2px 8px rgba(0,0,0,0.3);">CONNECT</div>
+              <div style="font-size:13px;color:rgba(255,255,255,0.9);margin-top:14px;max-width:240px;margin-left:auto;margin-right:auto;">Connecting customers with trusted borewell companies</div>
+            </div>
+
+            <div style="text-align:left;margin-top:180px;padding:0 28px 32px;">
+              <div style="font-size:13px;font-weight:700;color:#6B7280;margin-bottom:6px;">Mobile Number</div>
+              <div style="display:flex;align-items:center;gap:8px;border:1px solid #E6E3DD;border-radius:12px;padding:14px 16px;background:#fff;">
+                <span style="font-weight:700;color:#16181C;">+91</span>
+                <input value="{{ mobile }}" onChange="{{ setMobile }}" style="flex:1;border:none;outline:none;font-size:16px;background:transparent;font-family:inherit;" />
+              </div>
+              <button onClick="{{ sendOtp }}" style="width:100%;background:#1FA463;color:#fff;border:none;border-radius:12px;padding:15px;font-size:16px;font-weight:700;margin-top:22px;cursor:pointer;">Send OTP</button>
+              <div style="font-size:11px;color:#9CA3AF;text-align:center;margin-top:16px;">By continuing you agree to our Terms &amp; Conditions</div>
+            </div>
+          </div>
+        </sc-if>
+
+        <!-- STEP 1: OTP -->
+        <sc-if value="{{ steps.c1 }}" hint-placeholder-val="{{ false }}">
+          <div style="height:100%;overflow:auto;padding:54px 20px 32px;box-sizing:border-box;">
+            <div style="display:flex;align-items:center;gap:10px;padding:8px 0 18px;">
+              <span onClick="{{ backCustomer }}" style="cursor:pointer;font-size:20px;">←</span>
+              <span style="font-size:20px;font-weight:800;">Enter OTP</span>
+            </div>
+            <div style="font-size:13px;color:#6B7280;padding:0 4px;">We've sent a 6-digit code to +91 {{ mobile }}</div>
+            <input value="{{ otp }}" onChange="{{ setOtp }}" maxlength="6" style="width:100%;box-sizing:border-box;text-align:center;font-size:26px;letter-spacing:14px;border:1px solid #E6E3DD;border-radius:12px;padding:14px;margin-top:24px;font-family:inherit;" />
+            <div style="font-size:12px;color:#9CA3AF;text-align:center;margin-top:14px;">Resend OTP in 00:30</div>
+            <button onClick="{{ verifyOtp }}" style="width:100%;background:#1FA463;color:#fff;border:none;border-radius:12px;padding:15px;font-size:16px;font-weight:700;margin-top:26px;cursor:pointer;">Verify OTP</button>
+          </div>
+        </sc-if>
+
+        <!-- STEP 2: HOME -->
+        <sc-if value="{{ steps.c2 }}" hint-placeholder-val="{{ false }}">
+          <div style="height:100%;overflow:auto;padding:54px 0 32px;box-sizing:border-box;">
+            <div style="background:#0B2A4A;border-radius:16px;margin:0 16px 20px;padding:20px;">
+              <div style="color:#fff;font-size:19px;font-weight:800;">Hello, Ramesh</div>
+              <div style="color:rgba(255,255,255,0.75);font-size:13px;margin-top:4px;">Need a borewell? Get quotes from verified companies near you.</div>
+              <button onClick="{{ goCreateRequest }}" style="background:#F2994A;color:#fff;border:none;border-radius:10px;padding:11px 16px;font-size:14px;font-weight:700;margin-top:14px;cursor:pointer;">+ New Request</button>
+            </div>
+            <div style="display:flex;justify-content:space-between;align-items:center;margin:0 16px 10px;">
+              <div style="font-size:15px;font-weight:800;">My Active Requests</div>
+              <div onClick="{{ goMyBookings }}" style="font-size:12px;font-weight:700;color:#1FA463;cursor:pointer;">My Bookings →</div>
+            </div>
+            <div onClick="{{ goToQuotations }}" style="display:flex;justify-content:space-between;align-items:center;border:1px solid #E6E3DD;border-radius:12px;margin:0 16px 12px;padding:14px;cursor:pointer;">
+              <div>
+                <div style="font-weight:700;font-size:14px;">REQ1256</div>
+                <div style="font-size:12px;color:#6B7280;margin-top:2px;">Sangareddy, Telangana</div>
+              </div>
+              <div style="font-size:12px;font-weight:700;color:#1FA463;">3 Quotations →</div>
+            </div>
+          </div>
+        </sc-if>
+
+        <!-- STEP 3: CREATE REQUEST -->
+        <sc-if value="{{ steps.c3 }}" hint-placeholder-val="{{ false }}">
+          <div style="height:100%;overflow:auto;padding:54px 20px 32px;box-sizing:border-box;">
+            <div style="display:flex;align-items:center;gap:10px;padding-bottom:14px;">
+              <span onClick="{{ backCustomer }}" style="cursor:pointer;font-size:20px;">←</span>
+              <span style="font-size:20px;font-weight:800;">New Request</span>
+            </div>
+            <div style="font-size:12px;font-weight:700;color:#6B7280;margin-bottom:6px;">DISTRICT</div>
+            <input value="{{ requestForm.district }}" onChange="{{ updateDistrict }}" style="width:100%;box-sizing:border-box;border:1px solid #E6E3DD;border-radius:10px;padding:12px 14px;font-size:14px;font-family:inherit;margin-bottom:14px;" />
+            <div style="font-size:12px;font-weight:700;color:#6B7280;margin-bottom:6px;">MANDAL / AREA</div>
+            <input value="{{ requestForm.mandal }}" onChange="{{ updateMandal }}" style="width:100%;box-sizing:border-box;border:1px solid #E6E3DD;border-radius:10px;padding:12px 14px;font-size:14px;font-family:inherit;margin-bottom:14px;" />
+            <div style="font-size:12px;font-weight:700;color:#6B7280;margin-bottom:8px;">LAND TYPE</div>
+            <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px;">
+              <sc-for list="{{ landTypes }}" as="lt" hint-placeholder-count="3">
+                <div style="{{ lt.style }}" onClick="{{ lt.onClick }}">{{ lt.label }}</div>
+              </sc-for>
+            </div>
+            <div style="font-size:12px;font-weight:700;color:#6B7280;margin-bottom:6px;">EXPECTED DEPTH (FT)</div>
+            <input value="{{ requestForm.depth }}" onChange="{{ updateDepth }}" style="width:100%;box-sizing:border-box;border:1px solid #E6E3DD;border-radius:10px;padding:12px 14px;font-size:14px;font-family:inherit;margin-bottom:22px;" />
+            <button onClick="{{ submitRequest }}" style="width:100%;background:#1FA463;color:#fff;border:none;border-radius:12px;padding:15px;font-size:16px;font-weight:700;cursor:pointer;">Next: Select Location</button>
+          </div>
+        </sc-if>
+
+        <!-- STEP 4: SELECT LOCATION ON MAP -->
+        <sc-if value="{{ steps.c4 }}" hint-placeholder-val="{{ false }}">
+          <div style="height:100%;overflow:auto;padding:54px 20px 32px;box-sizing:border-box;">
+            <div style="display:flex;align-items:center;gap:10px;padding-bottom:14px;">
+              <span onClick="{{ backCustomer }}" style="cursor:pointer;font-size:20px;">←</span>
+              <span style="font-size:20px;font-weight:800;">Select Location</span>
+            </div>
+            <div style="border:1px solid #E6E3DD;border-radius:10px;padding:12px 14px;font-size:14px;color:#9CA3AF;margin-bottom:14px;">Search location</div>
+            <div style="position:relative;height:220px;border-radius:14px;overflow:hidden;background:repeating-linear-gradient(45deg,#E4E9E2,#E4E9E2 10px,#DCE2DA 10px,#DCE2DA 20px);margin-bottom:14px;display:flex;align-items:center;justify-content:center;">
+              <svg width="34" height="46" viewBox="0 0 34 46" style="position:relative;z-index:2;">
+                <path d="M17 0C7.6 0 0 7.6 0 17c0 12.7 17 29 17 29s17-16.3 17-29C34 7.6 26.4 0 17 0z" fill="#F2994A" />
+                <circle cx="17" cy="17" r="7" fill="#fff" />
+              </svg>
+              <div style="position:absolute;bottom:10px;left:0;right:0;text-align:center;font-family:monospace;font-size:10px;color:#6B7280;letter-spacing:1px;">MAP PREVIEW</div>
+            </div>
+            <div style="border:1px solid #E6E3DD;border-radius:12px;padding:14px;margin-bottom:22px;">
+              <div style="font-weight:700;font-size:14px;">{{ requestForm.mandal }}, {{ requestForm.district }}</div>
+              <div style="font-size:12px;color:#6B7280;margin-top:4px;">Telangana · Lat 17.5301, Long 78.1246</div>
+            </div>
+            <button onClick="{{ confirmLocation }}" style="width:100%;background:#1FA463;color:#fff;border:none;border-radius:12px;padding:15px;font-size:16px;font-weight:700;cursor:pointer;">Confirm Location</button>
+          </div>
+        </sc-if>
+
+        <!-- STEP 5: QUOTATIONS -->
+        <sc-if value="{{ steps.c5 }}" hint-placeholder-val="{{ false }}">
+          <div style="height:100%;overflow:auto;padding:54px 0 32px;box-sizing:border-box;">
+            <div style="display:flex;align-items:center;gap:10px;padding:0 16px 4px;">
+              <span onClick="{{ backCustomer }}" style="cursor:pointer;font-size:20px;">←</span>
+              <span style="font-size:20px;font-weight:800;">Quotations (5)</span>
+            </div>
+            <div style="font-size:12px;color:#6B7280;padding:0 16px 16px;">Ranked by price, rating &amp; distance</div>
+            <sc-for list="{{ sortedQuotes }}" as="q" hint-placeholder-count="5">
+              <div style="{{ q.cardStyle }}" onClick="{{ q.selectHandler }}">
+                <div style="{{ q.badgeStyle }}">{{ q.rank }}</div>
+                <div style="flex:1;">
+                  <div style="font-weight:700;font-size:14px;">{{ q.name }}</div>
+                  <div style="font-size:12px;color:#6B7280;margin-top:2px;">★ {{ q.rating }} · {{ q.distance }} km away</div>
+                  <sc-if value="{{ q.isTop }}" hint-placeholder-val="{{ false }}">
+                    <div style="display:inline-block;font-size:10px;font-weight:800;color:#fff;background:#F2994A;padding:2px 8px;border-radius:999px;margin-top:5px;">BEST MATCH</div>
+                  </sc-if>
+                </div>
+                <div style="{{ q.priceStyle }}">₹{{ q.price }}/ft</div>
+              </div>
+            </sc-for>
+          </div>
+        </sc-if>
+
+        <!-- STEP 6: COMPARE / DETAIL -->
+        <sc-if value="{{ steps.c6 }}" hint-placeholder-val="{{ false }}">
+          <div style="height:100%;overflow:auto;padding:54px 20px 32px;box-sizing:border-box;">
+            <div style="display:flex;align-items:center;gap:10px;padding-bottom:16px;">
+              <span onClick="{{ backCustomer }}" style="cursor:pointer;font-size:20px;">←</span>
+              <span style="font-size:20px;font-weight:800;">Quotation Details</span>
+            </div>
+            <div style="font-size:18px;font-weight:800;">{{ selectedQuote.name }}</div>
+            <div style="font-size:12px;color:#6B7280;margin-top:4px;">{{ selectedQuote.years }}+ years experience · {{ selectedQuote.machine }} machine</div>
+            <div style="font-size:26px;font-weight:800;color:#1FA463;margin-top:14px;">₹{{ selectedQuote.price }}/ft</div>
+
+            <div style="margin-top:22px;">
+              <div style="font-size:12px;color:#6B7280;margin-bottom:4px;">Price competitiveness</div>
+              <div style="background:#EEECE7;border-radius:999px;height:8px;overflow:hidden;"><div style="height:8px;background:#1FA463;width:{{ priceScorePct }}%;"></div></div>
+            </div>
+            <div style="margin-top:14px;">
+              <div style="font-size:12px;color:#6B7280;margin-bottom:4px;">Rating ({{ selectedQuote.rating }}★)</div>
+              <div style="background:#EEECE7;border-radius:999px;height:8px;overflow:hidden;"><div style="height:8px;background:#F2994A;width:{{ ratingScorePct }}%;"></div></div>
+            </div>
+            <div style="margin-top:14px;">
+              <div style="font-size:12px;color:#6B7280;margin-bottom:4px;">Proximity ({{ selectedQuote.distance }} km)</div>
+              <div style="background:#EEECE7;border-radius:999px;height:8px;overflow:hidden;"><div style="height:8px;background:#0B2A4A;width:{{ distScorePct }}%;"></div></div>
+            </div>
+
+            <button onClick="{{ bookQuote }}" style="width:100%;background:#1FA463;color:#fff;border:none;border-radius:12px;padding:15px;font-size:16px;font-weight:700;margin-top:28px;cursor:pointer;">Book Now</button>
+          </div>
+        </sc-if>
+
+        <!-- STEP 7: BOOKING CONFIRM -->
+        <sc-if value="{{ steps.c7 }}" hint-placeholder-val="{{ false }}">
+          <div style="height:100%;overflow:auto;padding:90px 28px 32px;box-sizing:border-box;text-align:center;">
+            <svg width="64" height="64" viewBox="0 0 64 64" style="margin:0 auto;">
+              <circle cx="32" cy="32" r="30" fill="#1FA463" />
+              <path d="M20 33l8 8 16-18" stroke="#fff" stroke-width="4" fill="none" stroke-linecap="round" stroke-linejoin="round" />
+            </svg>
+            <div style="font-size:20px;font-weight:800;margin-top:18px;">Booking Confirmed!</div>
+            <div style="font-size:13px;color:#6B7280;margin-top:6px;">You've booked {{ selectedQuote.name }}</div>
+            <div style="border:1px solid #E6E3DD;border-radius:12px;padding:16px;margin-top:26px;">
+              <div style="font-size:11px;color:#9CA3AF;">BOOKING ID</div>
+              <div style="font-size:18px;font-weight:800;margin-top:4px;">BK1256</div>
+            </div>
+            <div style="font-size:12px;color:#9CA3AF;margin-top:16px;">Company contact details will be shared after payment</div>
+            <button onClick="{{ proceedPayment }}" style="width:100%;background:#1FA463;color:#fff;border:none;border-radius:12px;padding:15px;font-size:16px;font-weight:700;margin-top:26px;cursor:pointer;">Proceed to Payment</button>
+          </div>
+        </sc-if>
+
+        <!-- STEP 8: PAYMENT -->
+        <sc-if value="{{ steps.c8 }}" hint-placeholder-val="{{ false }}">
+          <div style="height:100%;overflow:auto;padding:54px 20px 32px;box-sizing:border-box;">
+            <div style="display:flex;align-items:center;gap:10px;padding-bottom:16px;">
+              <span onClick="{{ backCustomer }}" style="cursor:pointer;font-size:20px;">←</span>
+              <span style="font-size:20px;font-weight:800;">Booking Fee</span>
+            </div>
+            <div style="text-align:center;">
+              <div style="font-size:36px;font-weight:800;color:#0B2A4A;">₹500</div>
+              <div style="font-size:12px;color:#6B7280;margin-top:6px;max-width:260px;margin-left:auto;margin-right:auto;">Balance amount is payable directly to the company after work completion</div>
+            </div>
+            <div style="margin-top:26px;display:flex;flex-direction:column;gap:10px;">
+              <div style="display:flex;align-items:center;gap:10px;border:1.5px solid #1FA463;border-radius:10px;padding:13px 14px;"><div style="width:16px;height:16px;border-radius:8px;border:5px solid #1FA463;"></div><span style="font-size:14px;font-weight:600;">UPI</span></div>
+              <div style="display:flex;align-items:center;gap:10px;border:1px solid #E6E3DD;border-radius:10px;padding:13px 14px;"><div style="width:16px;height:16px;border-radius:8px;border:1.5px solid #C9C6BE;"></div><span style="font-size:14px;color:#6B7280;">Card</span></div>
+              <div style="display:flex;align-items:center;gap:10px;border:1px solid #E6E3DD;border-radius:10px;padding:13px 14px;"><div style="width:16px;height:16px;border-radius:8px;border:1.5px solid #C9C6BE;"></div><span style="font-size:14px;color:#6B7280;">Net Banking</span></div>
+            </div>
+            <button onClick="{{ payFee }}" style="width:100%;background:#1FA463;color:#fff;border:none;border-radius:12px;padding:15px;font-size:16px;font-weight:700;margin-top:24px;cursor:pointer;">Pay ₹500 Securely</button>
+          </div>
+        </sc-if>
+
+        <!-- STEP 9: TRACKING -->
+        <sc-if value="{{ steps.c9 }}" hint-placeholder-val="{{ false }}">
+          <div style="height:100%;overflow:auto;padding:54px 20px 32px;box-sizing:border-box;">
+            <div style="font-size:20px;font-weight:800;padding-bottom:18px;">Job Tracking</div>
+            <div style="display:flex;flex-direction:column;gap:18px;">
+              <div style="display:flex;gap:12px;"><div style="width:10px;height:10px;border-radius:5px;background:#1FA463;margin-top:4px;flex-shrink:0;"></div><div><div style="font-size:14px;font-weight:700;">Booking Confirmed</div><div style="font-size:11px;color:#9CA3AF;">20 May 2026, 11:20 AM</div></div></div>
+              <div style="display:flex;gap:12px;"><div style="width:10px;height:10px;border-radius:5px;background:#1FA463;margin-top:4px;flex-shrink:0;"></div><div><div style="font-size:14px;font-weight:700;">Payment Completed</div><div style="font-size:11px;color:#9CA3AF;">20 May 2026, 11:25 AM</div></div></div>
+              <div style="display:flex;gap:12px;"><div style="width:10px;height:10px;border-radius:5px;background:#F2994A;margin-top:4px;flex-shrink:0;"></div><div><div style="font-size:14px;font-weight:700;">Company Reached Site</div><div style="font-size:11px;color:#9CA3AF;">21 May 2026, 08:30 AM</div></div></div>
+              <div style="display:flex;gap:12px;"><div style="width:10px;height:10px;border-radius:5px;background:#E5E7EB;margin-top:4px;flex-shrink:0;"></div><div><div style="font-size:14px;font-weight:700;color:#9CA3AF;">Drilling in Progress</div><div style="font-size:11px;color:#9CA3AF;">Expected completion 21 May</div></div></div>
+              <div style="display:flex;gap:12px;"><div style="width:10px;height:10px;border-radius:5px;background:#E5E7EB;margin-top:4px;flex-shrink:0;"></div><div><div style="font-size:14px;font-weight:700;color:#9CA3AF;">Work Completed</div></div></div>
+            </div>
+            <button style="width:100%;background:#fff;color:#0B2A4A;border:1.5px solid #0B2A4A;border-radius:12px;padding:14px;font-size:15px;font-weight:700;margin-top:30px;cursor:pointer;">Contact Company</button>
+            <button onClick="{{ goJobDetails }}" style="width:100%;background:#1FA463;color:#fff;border:none;border-radius:12px;padding:14px;font-size:15px;font-weight:700;margin-top:12px;cursor:pointer;">View Job Details</button>
+          </div>
+        </sc-if>
+
+        <!-- STEP 10: JOB DETAILS -->
+        <sc-if value="{{ steps.c10 }}" hint-placeholder-val="{{ false }}">
+          <div style="height:100%;overflow:auto;padding:54px 20px 32px;box-sizing:border-box;">
+            <div style="display:flex;align-items:center;gap:10px;padding-bottom:16px;">
+              <span onClick="{{ backCustomer }}" style="cursor:pointer;font-size:20px;">←</span>
+              <span style="font-size:20px;font-weight:800;">Job Details</span>
+            </div>
+            <div style="border:1px solid #E6E3DD;border-radius:12px;padding:16px;margin-bottom:14px;">
+              <div style="font-weight:800;font-size:16px;">Sri Sai Borewells</div>
+              <div style="font-size:12px;color:#6B7280;margin-top:4px;">12+ Years Experience · Sangareddy, Telangana</div>
+              <div style="font-size:13px;color:#6B7280;margin-top:8px;">📞 98765 11111</div>
+              <div style="font-size:13px;color:#6B7280;margin-top:4px;">Machine Type: DTH</div>
+            </div>
+            <div style="height:140px;border-radius:12px;background:repeating-linear-gradient(135deg,#EFEDE8,#EFEDE8 10px,#E6E3DD 10px,#E6E3DD 20px);display:flex;align-items:center;justify-content:center;margin-bottom:22px;">
+              <div style="font-family:monospace;font-size:11px;color:#6B7280;letter-spacing:1px;">SITE PHOTO</div>
+            </div>
+            <button onClick="{{ goWorkUpdates }}" style="width:100%;background:#1FA463;color:#fff;border:none;border-radius:12px;padding:15px;font-size:16px;font-weight:700;cursor:pointer;">View Work Updates</button>
+          </div>
+        </sc-if>
+
+        <!-- STEP 11: WORK UPDATES -->
+        <sc-if value="{{ steps.c11 }}" hint-placeholder-val="{{ false }}">
+          <div style="height:100%;overflow:auto;padding:54px 20px 32px;box-sizing:border-box;">
+            <div style="display:flex;align-items:center;gap:10px;padding-bottom:16px;">
+              <span onClick="{{ backCustomer }}" style="cursor:pointer;font-size:20px;">←</span>
+              <span style="font-size:20px;font-weight:800;">Work Updates</span>
+            </div>
+            <sc-for list="{{ workUpdates }}" as="w" hint-placeholder-count="4">
+              <div style="display:flex;gap:12px;margin-bottom:16px;">
+                <div style="width:64px;height:64px;border-radius:10px;flex-shrink:0;background:repeating-linear-gradient(135deg,#EFEDE8,#EFEDE8 8px,#E6E3DD 8px,#E6E3DD 16px);"></div>
+                <div>
+                  <div style="font-size:14px;font-weight:700;">{{ w.label }}</div>
+                  <div style="font-size:12px;color:#9CA3AF;margin-top:2px;">{{ w.time }}</div>
+                </div>
+              </div>
+            </sc-for>
+            <button onClick="{{ goInvoice }}" style="width:100%;background:#1FA463;color:#fff;border:none;border-radius:12px;padding:15px;font-size:16px;font-weight:700;margin-top:10px;cursor:pointer;">View Invoice</button>
+          </div>
+        </sc-if>
+
+        <!-- STEP 12: INVOICE -->
+        <sc-if value="{{ steps.c12 }}" hint-placeholder-val="{{ false }}">
+          <div style="height:100%;overflow:auto;padding:54px 20px 32px;box-sizing:border-box;">
+            <div style="display:flex;align-items:center;gap:10px;padding-bottom:16px;">
+              <span onClick="{{ backCustomer }}" style="cursor:pointer;font-size:20px;">←</span>
+              <span style="font-size:20px;font-weight:800;">Invoice</span>
+            </div>
+            <div style="font-size:12px;color:#9CA3AF;">INV1258 · 21 May 2026</div>
+            <div style="border:1px solid #E6E3DD;border-radius:12px;padding:16px;margin-top:12px;">
+              <div style="display:flex;justify-content:space-between;font-size:13px;padding:6px 0;"><span style="color:#6B7280;">Drilling (350 ft × ₹180/ft)</span><span style="font-weight:700;">₹63,000</span></div>
+              <div style="display:flex;justify-content:space-between;font-size:13px;padding:6px 0;"><span style="color:#6B7280;">Machine &amp; Casing Charges</span><span style="font-weight:700;">₹11,500</span></div>
+              <div style="display:flex;justify-content:space-between;font-size:13px;padding:6px 0;border-bottom:1px solid #EEECE7;"><span style="color:#6B7280;">Booking Fee (paid)</span><span style="font-weight:700;color:#1FA463;">− ₹500</span></div>
+              <div style="display:flex;justify-content:space-between;font-size:15px;padding:12px 0 0;"><span style="font-weight:800;">Total Payable to Company</span><span style="font-weight:800;">₹74,000</span></div>
+            </div>
+            <button style="width:100%;background:#fff;color:#0B2A4A;border:1.5px solid #0B2A4A;border-radius:12px;padding:14px;font-size:15px;font-weight:700;margin-top:20px;cursor:pointer;">Download Invoice</button>
+            <button onClick="{{ goReview }}" style="width:100%;background:#1FA463;color:#fff;border:none;border-radius:12px;padding:15px;font-size:16px;font-weight:700;margin-top:12px;cursor:pointer;">Rate &amp; Review</button>
+          </div>
+        </sc-if>
+
+        <!-- STEP 13: REVIEW -->
+        <sc-if value="{{ steps.c13 }}" hint-placeholder-val="{{ false }}">
+          <div style="height:100%;overflow:auto;padding:64px 24px 32px;box-sizing:border-box;text-align:center;">
+            <div style="font-size:20px;font-weight:800;">Rate &amp; Review</div>
+            <div style="font-size:13px;color:#6B7280;margin-top:6px;">How was your experience with {{ selectedQuote.name }}?</div>
+            <div style="display:flex;justify-content:center;gap:8px;margin-top:22px;">
+              <sc-for list="{{ reviewStars }}" as="star" hint-placeholder-count="5">
+                <svg onClick="{{ star.onClick }}" width="32" height="32" viewBox="0 0 24 24" style="cursor:pointer;">
+                  <path d="M12 2l3.09 6.26L22 9.27l-5 4.87L18.18 21 12 17.77 5.82 21 7 14.14 2 9.27l6.91-1.01z" fill="{{ star.color }}" />
+                </svg>
+              </sc-for>
+            </div>
+            <textarea value="{{ reviewText }}" onChange="{{ setReviewText }}" placeholder="Write a review (optional)" style="width:100%;box-sizing:border-box;border:1px solid #E6E3DD;border-radius:12px;padding:12px;font-size:14px;font-family:inherit;margin-top:22px;height:80px;resize:none;"></textarea>
+            <sc-if value="{{ reviewSubmitted }}" hint-placeholder-val="{{ false }}">
+              <div style="background:#DCF3E7;color:#17824E;font-weight:700;font-size:14px;padding:14px;border-radius:12px;margin-top:18px;">Thanks for your review!</div>
+              <button onClick="{{ goMyBookings }}" style="width:100%;background:#1FA463;color:#fff;border:none;border-radius:12px;padding:15px;font-size:16px;font-weight:700;margin-top:14px;cursor:pointer;">View My Bookings</button>
+            </sc-if>
+            <sc-if value="{{ !reviewSubmitted }}" hint-placeholder-val="{{ true }}">
+              <button onClick="{{ submitReview }}" style="width:100%;background:#1FA463;color:#fff;border:none;border-radius:12px;padding:15px;font-size:16px;font-weight:700;margin-top:18px;cursor:pointer;">Submit Review</button>
+            </sc-if>
+          </div>
+        </sc-if>
+
+        <!-- STEP 14: MY BOOKINGS -->
+        <sc-if value="{{ steps.c14 }}" hint-placeholder-val="{{ false }}">
+          <div style="height:100%;overflow:auto;padding:54px 0 32px;box-sizing:border-box;">
+            <div style="font-size:20px;font-weight:800;padding:0 16px 16px;">My Bookings</div>
+            <sc-for list="{{ bookings }}" as="b" hint-placeholder-count="4">
+              <div onClick="{{ b.customerClickHandler }}" style="display:flex;justify-content:space-between;align-items:center;border:1px solid #E6E3DD;border-radius:12px;margin:0 16px 12px;padding:14px;cursor:pointer;">
+                <div>
+                  <div style="font-weight:700;font-size:14px;">{{ b.id }}</div>
+                  <div style="font-size:12px;color:#6B7280;margin-top:2px;">{{ b.company }}</div>
+                </div>
+                <div style="font-size:12px;font-weight:700;color:{{ b.color }};">{{ b.status }}</div>
+              </div>
+            </sc-for>
+          </div>
+        </sc-if>
+
+      </x-import>
+    </div>
+
+    <!-- ================= OWNER PANEL ================= -->
+    <div style="{{ ownerPanelStyle }}" data-screen-label="Borewell Owner Login">
+      <div style="text-align:center;margin-bottom:22px;">
+        <div style="font-size:13px;font-weight:700;color:#6B7280;text-transform:uppercase;letter-spacing:1px;">Borewell Owner Login</div>
+        <div style="font-size:22px;font-weight:800;margin-top:4px;">{{ ownerStepLabel }}</div>
+      </div>
+
+      <div style="display:flex;gap:6px;margin-bottom:26px;flex-wrap:wrap;justify-content:center;max-width:380px;">
+        <sc-for list="{{ ownerStepsList }}" as="st" hint-placeholder-count="9">
+          <div style="{{ st.dotStyle }}" onClick="{{ st.onClick }}">{{ st.n }}</div>
+        </sc-for>
+      </div>
+
+      <x-import component-from-global-scope="IOSDevice" from="./ios-frame.jsx" width="{{ 390 }}" height="{{ 844 }}" hint-size="390,844">
+
+        <!-- O0: OWNER LOGIN -->
+        <sc-if value="{{ steps.o0 }}" hint-placeholder-val="{{ true }}">
+          <div style="height:100%;overflow:auto;padding:80px 28px 32px;box-sizing:border-box;text-align:center;">
+            <div style="font-size:26px;font-weight:800;color:#0B2A4A;letter-spacing:0.5px;">BOREWELL</div>
+            <div style="font-size:26px;font-weight:800;color:#1FA463;letter-spacing:0.5px;margin-top:-6px;">CONNECT</div>
+            <div style="font-size:13px;font-weight:700;color:#F2994A;margin-top:16px;letter-spacing:0.5px;">PARTNER LOGIN</div>
+            <div style="font-size:13px;color:#6B7280;margin-top:8px;max-width:240px;margin-left:auto;margin-right:auto;">Manage leads, quotes &amp; jobs as a verified borewell company</div>
+
+            <div style="text-align:left;margin-top:52px;">
+              <div style="font-size:13px;font-weight:700;color:#6B7280;margin-bottom:6px;">Mobile Number</div>
+              <div style="display:flex;align-items:center;gap:8px;border:1px solid #E6E3DD;border-radius:12px;padding:14px 16px;">
+                <span style="font-weight:700;color:#16181C;">+91</span>
+                <input value="{{ ownerMobile }}" onChange="{{ setOwnerMobile }}" style="flex:1;border:none;outline:none;font-size:16px;background:transparent;font-family:inherit;" />
+              </div>
+              <button onClick="{{ ownerSendOtp }}" style="width:100%;background:#1FA463;color:#fff;border:none;border-radius:12px;padding:15px;font-size:16px;font-weight:700;margin-top:22px;cursor:pointer;">Send OTP</button>
+              <div style="font-size:11px;color:#9CA3AF;text-align:center;margin-top:16px;">New company? <span style="color:#1FA463;font-weight:700;">Register here</span></div>
+            </div>
+          </div>
+        </sc-if>
+
+        <!-- O1: OWNER OTP -->
+        <sc-if value="{{ steps.o1 }}" hint-placeholder-val="{{ false }}">
+          <div style="height:100%;overflow:auto;padding:54px 20px 32px;box-sizing:border-box;">
+            <div style="display:flex;align-items:center;gap:10px;padding:8px 0 18px;">
+              <span onClick="{{ backOwner }}" style="cursor:pointer;font-size:20px;">←</span>
+              <span style="font-size:20px;font-weight:800;">Enter OTP</span>
+            </div>
+            <div style="font-size:13px;color:#6B7280;padding:0 4px;">We've sent a 6-digit code to +91 {{ ownerMobile }}</div>
+            <input value="{{ ownerOtp }}" onChange="{{ setOwnerOtp }}" maxlength="6" style="width:100%;box-sizing:border-box;text-align:center;font-size:26px;letter-spacing:14px;border:1px solid #E6E3DD;border-radius:12px;padding:14px;margin-top:24px;font-family:inherit;" />
+            <div style="font-size:12px;color:#9CA3AF;text-align:center;margin-top:14px;">Resend OTP in 00:30</div>
+            <button onClick="{{ ownerVerifyOtp }}" style="width:100%;background:#1FA463;color:#fff;border:none;border-radius:12px;padding:15px;font-size:16px;font-weight:700;margin-top:26px;cursor:pointer;">Verify OTP</button>
+          </div>
+        </sc-if>
+
+        <!-- O2: DASHBOARD -->
+        <sc-if value="{{ steps.o2 }}" hint-placeholder-val="{{ false }}">
+          <div style="height:100%;overflow:auto;padding:54px 0 32px;box-sizing:border-box;">
+            <div style="background:#0B2A4A;border-radius:16px;margin:0 16px 18px;padding:20px;display:flex;justify-content:space-between;align-items:flex-start;">
+              <div>
+                <div style="color:#fff;font-size:19px;font-weight:800;">Sri Sai Borewells</div>
+                <div style="color:rgba(255,255,255,0.7);font-size:12px;margin-top:4px;">12+ Years Experience · Sangareddy</div>
+              </div>
+              <div onClick="{{ goOwnerProfile }}" style="width:34px;height:34px;border-radius:17px;background:rgba(255,255,255,0.15);flex-shrink:0;cursor:pointer;"></div>
+            </div>
+            <div style="display:flex;gap:12px;margin:0 16px 18px;">
+              <div style="flex:1;border:1px solid #E6E3DD;border-radius:12px;padding:14px;">
+                <div style="font-size:22px;font-weight:800;">2</div>
+                <div style="font-size:11px;color:#6B7280;margin-top:2px;">New Leads</div>
+              </div>
+              <div style="flex:1;border:1px solid #E6E3DD;border-radius:12px;padding:14px;">
+                <div style="font-size:22px;font-weight:800;">3</div>
+                <div style="font-size:11px;color:#6B7280;margin-top:2px;">Active Jobs</div>
+              </div>
+            </div>
+            <div style="margin:0 16px 18px;border:1px solid #E6E3DD;border-radius:12px;padding:14px;">
+              <div style="font-size:11px;color:#6B7280;">EARNINGS THIS MONTH</div>
+              <div style="font-size:24px;font-weight:800;color:#1FA463;margin-top:4px;">₹1,25,000</div>
+            </div>
+            <div style="margin:0 16px;">
+              <button onClick="{{ ownerGoLead }}" style="width:100%;background:#1FA463;color:#fff;border:none;border-radius:12px;padding:14px;font-size:15px;font-weight:700;cursor:pointer;">View New Lead</button>
+            </div>
+          </div>
+        </sc-if>
+
+        <!-- O3: NEW LEAD -->
+        <sc-if value="{{ steps.o3 }}" hint-placeholder-val="{{ false }}">
+          <div style="height:100%;overflow:auto;padding:54px 20px 32px;box-sizing:border-box;">
+            <div style="display:flex;align-items:center;gap:10px;padding-bottom:16px;">
+              <span onClick="{{ backOwner }}" style="cursor:pointer;font-size:20px;">←</span>
+              <span style="font-size:20px;font-weight:800;">New Lead</span>
+            </div>
+            <div style="border:1px solid #E6E3DD;border-radius:12px;padding:16px;">
+              <div style="font-size:16px;font-weight:800;">REQ1256</div>
+              <div style="font-size:13px;color:#6B7280;margin-top:8px;">📍 Sangareddy, Telangana</div>
+              <div style="font-size:13px;color:#6B7280;margin-top:6px;">Land Type: Agriculture</div>
+              <div style="font-size:13px;color:#6B7280;margin-top:6px;">Expected Depth: 350 ft</div>
+              <div style="font-size:13px;color:#6B7280;margin-top:6px;">Preferred Date: 25 May 2026</div>
+            </div>
+            <div style="font-size:12px;color:#9CA3AF;font-style:italic;margin-top:14px;">Customer contact details are shared only after you're selected.</div>
+            <button onClick="{{ ownerGoSubmitQuote }}" style="width:100%;background:#1FA463;color:#fff;border:none;border-radius:12px;padding:15px;font-size:16px;font-weight:700;margin-top:22px;cursor:pointer;">Submit Quote</button>
+          </div>
+        </sc-if>
+
+        <!-- O4: SUBMIT QUOTE -->
+        <sc-if value="{{ steps.o4 }}" hint-placeholder-val="{{ false }}">
+          <div style="height:100%;overflow:auto;padding:54px 20px 32px;box-sizing:border-box;">
+            <div style="display:flex;align-items:center;gap:10px;padding-bottom:16px;">
+              <span onClick="{{ backOwner }}" style="cursor:pointer;font-size:20px;">←</span>
+              <span style="font-size:20px;font-weight:800;">Submit Quote</span>
+            </div>
+            <div style="font-size:12px;font-weight:700;color:#6B7280;margin-bottom:6px;">PRICE PER FT (₹)</div>
+            <input value="{{ bidAmount }}" onChange="{{ setBidAmount }}" style="width:100%;box-sizing:border-box;border:1px solid #E6E3DD;border-radius:10px;padding:12px 14px;font-size:16px;font-family:inherit;margin-bottom:14px;" />
+            <div style="font-size:12px;font-weight:700;color:#6B7280;margin-bottom:6px;">MACHINE TYPE</div>
+            <div style="border:1.5px solid #0B2A4A;border-radius:10px;padding:12px 14px;font-size:14px;font-weight:600;margin-bottom:14px;">DTH</div>
+            <div style="font-size:12px;font-weight:700;color:#6B7280;margin-bottom:6px;">ESTIMATED COMPLETION</div>
+            <div style="border:1px solid #E6E3DD;border-radius:10px;padding:12px 14px;font-size:14px;color:#6B7280;margin-bottom:22px;">3–4 days</div>
+            <button onClick="{{ submitQuote }}" style="width:100%;background:#1FA463;color:#fff;border:none;border-radius:12px;padding:15px;font-size:16px;font-weight:700;cursor:pointer;">Submit Quotation</button>
+          </div>
+        </sc-if>
+
+        <!-- O5: ACTIVE JOBS -->
+        <sc-if value="{{ steps.o5 }}" hint-placeholder-val="{{ false }}">
+          <div style="height:100%;overflow:auto;padding:54px 0 32px;box-sizing:border-box;">
+            <div style="font-size:20px;font-weight:800;padding:0 16px 6px;">Active Jobs</div>
+            <sc-if value="{{ ownerSubmitted }}" hint-placeholder-val="{{ false }}">
+              <div style="background:#DCF3E7;color:#17824E;font-size:12px;font-weight:700;padding:10px 14px;margin:8px 16px;border-radius:10px;">Quotation submitted successfully</div>
+            </sc-if>
+            <sc-for list="{{ ownerJobs }}" as="j" hint-placeholder-count="3">
+              <div onClick="{{ j.onClick }}" style="display:flex;justify-content:space-between;align-items:center;border:1px solid #E6E3DD;border-radius:12px;margin:0 16px 12px;padding:14px;cursor:pointer;">
+                <div style="font-weight:700;font-size:14px;">{{ j.id }}</div>
+                <div style="font-size:12px;font-weight:700;color:{{ j.color }};">{{ j.status }}</div>
+              </div>
+            </sc-for>
+          </div>
+        </sc-if>
+
+        <!-- O6: JOB UPDATE -->
+        <sc-if value="{{ steps.o6 }}" hint-placeholder-val="{{ false }}">
+          <div style="height:100%;overflow:auto;padding:54px 20px 32px;box-sizing:border-box;">
+            <div style="display:flex;align-items:center;gap:10px;padding-bottom:10px;">
+              <span onClick="{{ backOwner }}" style="cursor:pointer;font-size:20px;">←</span>
+              <span style="font-size:20px;font-weight:800;">Job — BK1256</span>
+            </div>
+            <div style="font-size:13px;color:#6B7280;margin-bottom:18px;">Ramesh K. · 98765 43210</div>
+            <div style="display:flex;flex-direction:column;gap:14px;margin-bottom:22px;">
+              <sc-for list="{{ milestonesList }}" as="m" hint-placeholder-count="4">
+                <div style="display:flex;align-items:center;gap:10px;">
+                  <div style="{{ m.dotStyle }}"></div>
+                  <div style="font-size:14px;font-weight:600;">{{ m.label }}</div>
+                </div>
+              </sc-for>
+            </div>
+            <sc-if value="{{ !milestoneComplete }}" hint-placeholder-val="{{ true }}">
+              <button onClick="{{ advanceMilestone }}" style="width:100%;background:#1FA463;color:#fff;border:none;border-radius:12px;padding:15px;font-size:15px;font-weight:700;cursor:pointer;">Mark "{{ nextMilestoneLabel }}"</button>
+            </sc-if>
+          </div>
+        </sc-if>
+
+        <!-- O7: EARNINGS -->
+        <sc-if value="{{ steps.o7 }}" hint-placeholder-val="{{ false }}">
+          <div style="height:100%;overflow:auto;padding:54px 20px 32px;box-sizing:border-box;">
+            <div style="font-size:20px;font-weight:800;padding-bottom:14px;">Earnings</div>
+            <div style="font-size:28px;font-weight:800;color:#1FA463;">₹1,25,000</div>
+            <div style="font-size:12px;color:#6B7280;margin-bottom:20px;">This month</div>
+            <div style="display:flex;align-items:flex-end;gap:10px;height:100px;margin-bottom:24px;">
+              <div style="flex:1;background:#0B2A4A;border-radius:6px 6px 0 0;height:40%;"></div>
+              <div style="flex:1;background:#0B2A4A;border-radius:6px 6px 0 0;height:65%;"></div>
+              <div style="flex:1;background:#0B2A4A;border-radius:6px 6px 0 0;height:50%;"></div>
+              <div style="flex:1;background:#1FA463;border-radius:6px 6px 0 0;height:100%;"></div>
+            </div>
+            <div style="font-size:13px;font-weight:700;margin-bottom:10px;">Recent Payouts</div>
+            <div style="display:flex;justify-content:space-between;border-bottom:1px solid #EEECE7;padding:10px 0;font-size:13px;"><span>BK1203</span><span style="font-weight:700;">₹62,000</span></div>
+            <div style="display:flex;justify-content:space-between;border-bottom:1px solid #EEECE7;padding:10px 0;font-size:13px;"><span>BK1180</span><span style="font-weight:700;">₹58,500</span></div>
+          </div>
+        </sc-if>
+
+        <!-- O8: PROFILE -->
+        <sc-if value="{{ steps.o8 }}" hint-placeholder-val="{{ false }}">
+          <div style="height:100%;overflow:auto;padding:54px 20px 32px;box-sizing:border-box;">
+            <div style="display:flex;align-items:center;gap:10px;padding-bottom:16px;">
+              <span onClick="{{ backOwner }}" style="cursor:pointer;font-size:20px;">←</span>
+              <span style="font-size:20px;font-weight:800;">Company Profile</span>
+            </div>
+            <div style="border:1px solid #E6E3DD;border-radius:12px;padding:16px;margin-bottom:16px;">
+              <div style="display:flex;justify-content:space-between;align-items:center;">
+                <div style="font-weight:800;font-size:16px;">Sri Sai Borewells</div>
+                <div style="font-size:10px;font-weight:800;color:#1FA463;background:#DCF3E7;padding:3px 8px;border-radius:999px;">VERIFIED</div>
+              </div>
+              <div style="font-size:13px;color:#6B7280;margin-top:10px;">Owner: Ramesh K.</div>
+              <div style="font-size:13px;color:#6B7280;margin-top:6px;">98765 11111</div>
+              <div style="font-size:13px;color:#6B7280;margin-top:6px;">Sangareddy, Telangana</div>
+              <div style="font-size:13px;color:#6B7280;margin-top:6px;">Experience: 12+ years</div>
+              <div style="font-size:13px;color:#6B7280;margin-top:6px;">Registration No: TS-DRL-4471</div>
+              <div style="font-size:12px;font-weight:700;color:#6B7280;margin-top:12px;margin-bottom:6px;">SERVICE AREAS</div>
+              <div style="display:flex;gap:6px;flex-wrap:wrap;">
+                <div style="font-size:11px;font-weight:600;padding:5px 10px;border-radius:999px;background:#F2F2F0;">Sangareddy</div>
+                <div style="font-size:11px;font-weight:600;padding:5px 10px;border-radius:999px;background:#F2F2F0;">Medak</div>
+                <div style="font-size:11px;font-weight:600;padding:5px 10px;border-radius:999px;background:#F2F2F0;">Hyderabad</div>
+              </div>
+            </div>
+            <div style="font-size:12px;font-weight:700;color:#6B7280;margin-bottom:8px;">VEHICLE &amp; MACHINE PHOTOS</div>
+            <div style="display:flex;gap:10px;margin-bottom:20px;">
+              <x-import component-from-global-scope="image-slot" from="./image-slot.js" id="owner-vehicle-front" shape="rounded" radius="10" placeholder="Vehicle front" style="width:33%;height:90px;" hint-size="100,90"></x-import>
+              <x-import component-from-global-scope="image-slot" from="./image-slot.js" id="owner-vehicle-machine" shape="rounded" radius="10" placeholder="Drill unit" style="width:33%;height:90px;" hint-size="100,90"></x-import>
+              <x-import component-from-global-scope="image-slot" from="./image-slot.js" id="owner-vehicle-plate" shape="rounded" radius="10" placeholder="Registration" style="width:33%;height:90px;" hint-size="100,90"></x-import>
+            </div>
+            <button style="width:100%;background:#fff;color:#0B2A4A;border:1.5px solid #0B2A4A;border-radius:12px;padding:14px;font-size:15px;font-weight:700;cursor:pointer;">Edit Profile</button>
+          </div>
+        </sc-if>
+
+      </x-import>
+    </div>
+
+    <!-- ================= ADMIN PANEL ================= -->
+    <div style="{{ adminPanelStyle }}" data-screen-label="Admin Portal">
+      <div style="text-align:center;margin-bottom:22px;">
+        <div style="font-size:13px;font-weight:700;color:#6B7280;text-transform:uppercase;letter-spacing:1px;">Admin Portal</div>
+        <div style="font-size:22px;font-weight:800;margin-top:4px;text-transform:capitalize;">{{ adminHeaderLabel }}</div>
+      </div>
+
+      <x-import component-from-global-scope="ChromeWindow" from="./browser-window.jsx" width="{{ 1180 }}" height="{{ 720 }}" url="app.borewellconnect.com/admin" hint-size="1180,720">
+        <div style="height:100%;font-family:'Manrope',system-ui,sans-serif;">
+
+          <sc-if value="{{ !adminLoggedIn }}" hint-placeholder-val="{{ true }}">
+            <div style="height:100%;display:flex;align-items:center;justify-content:center;background:#F9F8F6;">
+              <div style="width:320px;background:#fff;border:1px solid #E6E3DD;border-radius:16px;padding:32px;">
+                <div style="text-align:center;margin-bottom:22px;">
+                  <div style="font-size:18px;font-weight:800;color:#0B2A4A;">BOREWELL <span style="color:#1FA463;">CONNECT</span></div>
+                  <div style="font-size:12px;color:#6B7280;margin-top:6px;">Admin Portal Login</div>
+                </div>
+                <div style="font-size:12px;font-weight:700;color:#6B7280;margin-bottom:6px;">EMAIL</div>
+                <input value="{{ adminEmail }}" onChange="{{ setAdminEmail }}" style="width:100%;box-sizing:border-box;border:1px solid #E6E3DD;border-radius:10px;padding:11px 13px;font-size:14px;font-family:inherit;margin-bottom:14px;" />
+                <div style="font-size:12px;font-weight:700;color:#6B7280;margin-bottom:6px;">PASSWORD</div>
+                <input type="password" value="{{ adminPassword }}" onChange="{{ setAdminPassword }}" placeholder="••••••••" style="width:100%;box-sizing:border-box;border:1px solid #E6E3DD;border-radius:10px;padding:11px 13px;font-size:14px;font-family:inherit;margin-bottom:20px;" />
+                <button onClick="{{ adminLogin }}" style="width:100%;background:#1FA463;color:#fff;border:none;border-radius:10px;padding:13px;font-size:14px;font-weight:700;cursor:pointer;">Log In</button>
+              </div>
+            </div>
+          </sc-if>
+
+          <sc-if value="{{ adminLoggedIn }}" hint-placeholder-val="{{ false }}">
+            <div style="display:flex;height:100%;">
+              <div style="width:190px;background:#0B2A4A;flex-shrink:0;padding:20px 0;box-sizing:border-box;">
+                <div style="color:#fff;font-weight:800;font-size:15px;padding:0 20px 20px;">CONNECT Admin</div>
+                <sc-for list="{{ adminNavItems }}" as="nav" hint-placeholder-count="4">
+                  <div style="{{ nav.style }}" onClick="{{ nav.onClick }}">{{ nav.label }}</div>
+                </sc-for>
+              </div>
+              <div style="flex:1;padding:28px;overflow:auto;box-sizing:border-box;background:#F9F8F6;">
+
+                <sc-if value="{{ steps.aDashboard }}" hint-placeholder-val="{{ true }}">
+                  <div style="font-size:20px;font-weight:800;margin-bottom:18px;">Dashboard</div>
+                  <div style="display:flex;gap:16px;margin-bottom:26px;flex-wrap:wrap;">
+                    <div style="flex:1;min-width:150px;background:#fff;border:1px solid #E6E3DD;border-radius:12px;padding:16px;">
+                      <div style="font-size:11px;color:#6B7280;font-weight:700;">TOTAL USERS</div>
+                      <div style="font-size:24px;font-weight:800;margin-top:6px;">12,456</div>
+                    </div>
+                    <div style="flex:1;min-width:150px;background:#fff;border:1px solid #E6E3DD;border-radius:12px;padding:16px;">
+                      <div style="font-size:11px;color:#6B7280;font-weight:700;">TOTAL COMPANIES</div>
+                      <div style="font-size:24px;font-weight:800;margin-top:6px;">{{ totalCompanies }}</div>
+                    </div>
+                    <div style="flex:1;min-width:150px;background:#fff;border:1px solid #E6E3DD;border-radius:12px;padding:16px;">
+                      <div style="font-size:11px;color:#6B7280;font-weight:700;">ACTIVE REQUESTS</div>
+                      <div style="font-size:24px;font-weight:800;margin-top:6px;">3,405</div>
+                    </div>
+                    <div style="flex:1;min-width:150px;background:#fff;border:1px solid #E6E3DD;border-radius:12px;padding:16px;">
+                      <div style="font-size:11px;color:#6B7280;font-weight:700;">TOTAL BOOKINGS</div>
+                      <div style="font-size:24px;font-weight:800;margin-top:6px;">1,900</div>
+                    </div>
+                  </div>
+                  <div style="font-size:14px;font-weight:800;margin-bottom:10px;">Recent Bookings</div>
+                  <div style="background:#fff;border:1px solid #E6E3DD;border-radius:12px;overflow:hidden;">
+                    <sc-for list="{{ bookings }}" as="b" hint-placeholder-count="4">
+                      <div style="display:flex;justify-content:space-between;align-items:center;padding:12px 16px;border-bottom:1px solid #EEECE7;font-size:13px;">
+                        <span style="font-weight:700;">{{ b.id }}</span>
+                        <span style="color:#6B7280;">{{ b.company }}</span>
+                        <span style="font-weight:700;">{{ b.amount }}</span>
+                        <span style="font-weight:700;color:{{ b.color }};">{{ b.status }}</span>
+                      </div>
+                    </sc-for>
+                  </div>
+                </sc-if>
+
+                <sc-if value="{{ steps.aCompanies }}" hint-placeholder-val="{{ false }}">
+                  <div style="font-size:20px;font-weight:800;margin-bottom:18px;">Companies ({{ totalCompanies }})</div>
+                  <div style="background:#fff;border:1px solid #E6E3DD;border-radius:12px;overflow:hidden;">
+                    <div style="display:flex;padding:12px 16px;font-size:11px;font-weight:700;color:#6B7280;background:#F9F8F6;border-bottom:1px solid #EEECE7;">
+                      <div style="flex:2;">COMPANY</div><div style="flex:1;">CITY</div><div style="flex:1;">STATUS</div><div style="flex:1;text-align:right;">ACTION</div>
+                    </div>
+                    <sc-for list="{{ companies }}" as="c" hint-placeholder-count="4">
+                      <div style="display:flex;align-items:center;padding:14px 16px;border-bottom:1px solid #EEECE7;font-size:13px;">
+                        <div style="flex:2;">
+                          <div style="font-weight:700;">{{ c.name }}</div>
+                          <div style="font-size:11px;color:#9CA3AF;">{{ c.owner }}</div>
+                        </div>
+                        <div style="flex:1;color:#6B7280;">{{ c.city }}</div>
+                        <div style="flex:1;"><span style="{{ c.statusStyle }}">{{ c.status }}</span></div>
+                        <div style="flex:1;text-align:right;">
+                          <sc-if value="{{ c.isPending }}" hint-placeholder-val="{{ false }}">
+                            <button onClick="{{ c.toggleHandler }}" style="background:#0B2A4A;color:#fff;border:none;border-radius:8px;padding:7px 14px;font-size:12px;font-weight:700;cursor:pointer;">Verify</button>
+                          </sc-if>
+                        </div>
+                      </div>
+                    </sc-for>
+                  </div>
+                </sc-if>
+
+                <sc-if value="{{ steps.aBookings }}" hint-placeholder-val="{{ false }}">
+                  <div style="font-size:20px;font-weight:800;margin-bottom:18px;">Bookings</div>
+                  <div style="background:#fff;border:1px solid #E6E3DD;border-radius:12px;overflow:hidden;">
+                    <div style="display:flex;padding:12px 16px;font-size:11px;font-weight:700;color:#6B7280;background:#F9F8F6;border-bottom:1px solid #EEECE7;">
+                      <div style="flex:1;">BOOKING ID</div><div style="flex:1;">CUSTOMER</div><div style="flex:2;">COMPANY</div><div style="flex:1;">AMOUNT</div><div style="flex:1;text-align:right;">STATUS</div>
+                    </div>
+                    <sc-for list="{{ bookings }}" as="b" hint-placeholder-count="4">
+                      <div style="display:flex;align-items:center;padding:14px 16px;border-bottom:1px solid #EEECE7;font-size:13px;">
+                        <div style="flex:1;font-weight:700;">{{ b.id }}</div>
+                        <div style="flex:1;color:#6B7280;">{{ b.customer }}</div>
+                        <div style="flex:2;">{{ b.company }}</div>
+                        <div style="flex:1;font-weight:700;">{{ b.amount }}</div>
+                        <div style="flex:1;text-align:right;font-weight:700;color:{{ b.color }};">{{ b.status }}</div>
+                      </div>
+                    </sc-for>
+                  </div>
+                </sc-if>
+
+                <sc-if value="{{ steps.aAnalytics }}" hint-placeholder-val="{{ false }}">
+                  <div style="font-size:20px;font-weight:800;margin-bottom:18px;">Earnings &amp; Analytics</div>
+                  <div style="display:flex;gap:16px;margin-bottom:26px;">
+                    <div style="flex:1;background:#fff;border:1px solid #E6E3DD;border-radius:12px;padding:16px;">
+                      <div style="font-size:11px;color:#6B7280;font-weight:700;">TOTAL REVENUE (THIS MONTH)</div>
+                      <div style="font-size:24px;font-weight:800;margin-top:6px;color:#1FA463;">₹24,50,000</div>
+                    </div>
+                    <div style="flex:1;background:#fff;border:1px solid #E6E3DD;border-radius:12px;padding:16px;">
+                      <div style="font-size:11px;color:#6B7280;font-weight:700;">COMMISSION EARNED</div>
+                      <div style="font-size:24px;font-weight:800;margin-top:6px;">₹1,22,500</div>
+                    </div>
+                  </div>
+                  <div style="background:#fff;border:1px solid #E6E3DD;border-radius:12px;padding:20px;margin-bottom:20px;">
+                    <div style="font-size:13px;font-weight:800;margin-bottom:14px;">Revenue Trend (6 months)</div>
+                    <div style="display:flex;align-items:flex-end;gap:14px;height:120px;">
+                      <div style="flex:1;background:#CFEBDD;border-radius:6px 6px 0 0;height:45%;"></div>
+                      <div style="flex:1;background:#CFEBDD;border-radius:6px 6px 0 0;height:60%;"></div>
+                      <div style="flex:1;background:#CFEBDD;border-radius:6px 6px 0 0;height:52%;"></div>
+                      <div style="flex:1;background:#CFEBDD;border-radius:6px 6px 0 0;height:75%;"></div>
+                      <div style="flex:1;background:#CFEBDD;border-radius:6px 6px 0 0;height:68%;"></div>
+                      <div style="flex:1;background:#1FA463;border-radius:6px 6px 0 0;height:100%;"></div>
+                    </div>
+                  </div>
+                  <div style="background:#fff;border:1px solid #E6E3DD;border-radius:12px;padding:20px;">
+                    <div style="font-size:13px;font-weight:800;margin-bottom:14px;">Bookings by Status</div>
+                    <div style="display:flex;border-radius:999px;overflow:hidden;height:14px;margin-bottom:14px;">
+                      <div style="width:63%;background:#1FA463;"></div>
+                      <div style="width:26%;background:#F2994A;"></div>
+                      <div style="width:11%;background:#C0392B;"></div>
+                    </div>
+                    <div style="display:flex;gap:22px;font-size:12px;">
+                      <div style="display:flex;align-items:center;gap:6px;"><div style="width:9px;height:9px;border-radius:5px;background:#1FA463;"></div>Completed · 1,200</div>
+                      <div style="display:flex;align-items:center;gap:6px;"><div style="width:9px;height:9px;border-radius:5px;background:#F2994A;"></div>In Progress · 500</div>
+                      <div style="display:flex;align-items:center;gap:6px;"><div style="width:9px;height:9px;border-radius:5px;background:#C0392B;"></div>Cancelled · 200</div>
+                    </div>
+                  </div>
+                </sc-if>
+
+              </div>
+            </div>
+          </sc-if>
+        </div>
+      </x-import>
+    </div>
+
+  </div>
+</div>
+
+</x-dc>
+<script type="text/x-dc" data-dc-script>
+
+class Component extends DCLogic {
+  state = {
+    persona: 'customer',
+    customerStep: 0,
+    ownerStep: 0,
+    adminTab: 'dashboard',
+    adminLoggedIn: false,
+    adminEmail: 'admin@borewellconnect.com',
+    adminPassword: '',
+    mobile: '98765 43210',
+    otp: '',
+    ownerMobile: '98765 11111',
+    ownerOtp: '',
+    requestForm: { district: 'Sangareddy', mandal: 'Patancheru', landType: 'Agriculture', depth: '350' },
+    selectedQuoteId: 1,
+    reviewRating: 5,
+    reviewText: '',
+    reviewSubmitted: false,
+    bidAmount: '185',
+    ownerSubmitted: false,
+    milestoneIndex: 1,
+    companies: [
+      { id: 1, name: 'Sri Sai Borewells', owner: 'Ramesh K.', city: 'Sangareddy', status: 'Verified' },
+      { id: 2, name: 'Lakshmi Borewells', owner: 'Rajesh P.', city: 'Medak', status: 'Verified' },
+      { id: 3, name: 'Ganesh Borewells', owner: 'Ganesh M.', city: 'Hyderabad', status: 'Pending' },
+      { id: 4, name: 'Surya Borewells', owner: 'Suresh N.', city: 'Nizamabad', status: 'Pending' },
+    ],
+  };
+
+  quotesRaw = [
+    { id: 1, name: 'Sri Sai Borewells', price: 180, rating: 4.8, distance: 3.2, years: 12, machine: 'DTH' },
+    { id: 2, name: 'Lakshmi Borewells', price: 195, rating: 4.6, distance: 5.1, years: 10, machine: 'DTH' },
+    { id: 3, name: 'Shiva Borewells', price: 200, rating: 4.7, distance: 2.0, years: 9, machine: 'Rotary' },
+    { id: 4, name: 'Ganesh Borewells', price: 210, rating: 4.5, distance: 8.4, years: 8, machine: 'DTH' },
+    { id: 5, name: 'Surya Borewells', price: 220, rating: 4.3, distance: 6.7, years: 7, machine: 'Rotary' },
+  ];
+
+  customerLabels = ['Login', 'Verify OTP', 'Home', 'New Request', 'Select Location', 'Quotations', 'Compare', 'Confirm', 'Payment', 'Tracking', 'Job Details', 'Work Updates', 'Invoice', 'Review', 'My Bookings'];
+  ownerLabels = ['Login', 'Verify OTP', 'Dashboard', 'New Lead', 'Submit Quote', 'Active Jobs', 'Job Update', 'Earnings', 'Profile'];
+  milestones = ['Request Accepted', 'Reached Site', 'Drilling Started', 'Work Completed'];
+
+  selectPersona = (p) => this.setState({ persona: p });
+  setCustomerStep = (n) => this.setState({ customerStep: n });
+  setOwnerStep = (n) => this.setState({ ownerStep: n });
+  setAdminTab = (t) => this.setState({ adminTab: t });
+  backCustomer = () => this.setState(s => ({ customerStep: Math.max(0, s.customerStep - 1) }));
+  backOwner = () => this.setState(s => ({ ownerStep: Math.max(0, s.ownerStep - 1) }));
+
+  setMobile = (e) => this.setState({ mobile: e.target.value });
+  setOtp = (e) => this.setState({ otp: e.target.value });
+  sendOtp = () => this.setState({ customerStep: 1 });
+  verifyOtp = () => this.setState({ customerStep: 2 });
+  goCreateRequest = () => this.setState({ customerStep: 3 });
+  goToQuotations = () => this.setState({ customerStep: 5 });
+
+  updateDistrict = (e) => this.setState(s => ({ requestForm: { ...s.requestForm, district: e.target.value } }));
+  updateMandal = (e) => this.setState(s => ({ requestForm: { ...s.requestForm, mandal: e.target.value } }));
+  updateDepth = (e) => this.setState(s => ({ requestForm: { ...s.requestForm, depth: e.target.value } }));
+  setLandType = (t) => this.setState(s => ({ requestForm: { ...s.requestForm, landType: t } }));
+  submitRequest = () => this.setState({ customerStep: 4 });
+  confirmLocation = () => this.setState({ customerStep: 5 });
+
+  selectQuote = (id) => this.setState({ selectedQuoteId: id, customerStep: 6 });
+  bookQuote = () => this.setState({ customerStep: 7 });
+  proceedPayment = () => this.setState({ customerStep: 8 });
+  payFee = () => this.setState({ customerStep: 9 });
+  goJobDetails = () => this.setState({ customerStep: 10 });
+  goWorkUpdates = () => this.setState({ customerStep: 11 });
+  goInvoice = () => this.setState({ customerStep: 12 });
+  goReview = () => this.setState({ customerStep: 13 });
+  goMyBookings = () => this.setState({ customerStep: 14 });
+
+  setReviewRating = (n) => this.setState({ reviewRating: n });
+  setReviewText = (e) => this.setState({ reviewText: e.target.value });
+  submitReview = () => this.setState({ reviewSubmitted: true });
+
+  setOwnerMobile = (e) => this.setState({ ownerMobile: e.target.value });
+  setOwnerOtp = (e) => this.setState({ ownerOtp: e.target.value });
+  ownerSendOtp = () => this.setState({ ownerStep: 1 });
+  ownerVerifyOtp = () => this.setState({ ownerStep: 2 });
+  ownerGoLead = () => this.setState({ ownerStep: 3 });
+  ownerGoSubmitQuote = () => this.setState({ ownerStep: 4 });
+  goOwnerProfile = () => this.setState({ ownerStep: 8 });
+  setBidAmount = (e) => this.setState({ bidAmount: e.target.value });
+  submitQuote = () => this.setState({ ownerSubmitted: true, ownerStep: 5 });
+  advanceMilestone = () => this.setState(s => ({ milestoneIndex: Math.min(this.milestones.length - 1, s.milestoneIndex + 1) }));
+
+  setAdminEmail = (e) => this.setState({ adminEmail: e.target.value });
+  setAdminPassword = (e) => this.setState({ adminPassword: e.target.value });
+  adminLogin = () => this.setState({ adminLoggedIn: true });
+
+  toggleVerify = (id) => this.setState(s => ({
+    companies: s.companies.map(c => c.id === id ? { ...c, status: 'Verified' } : c),
+  }));
+
+  renderVals() {
+    const s = this.state;
+    const navy = '#0B2A4A', green = '#1FA463', orange = '#F2994A', border = '#E6E3DD', muted = '#6B7280';
+
+    const scored = this.quotesRaw.map(q => ({
+      ...q,
+      blended: Math.round((q.rating * 20 - q.price * 0.12 - q.distance * 2.5) * 10) / 10,
+    })).sort((a, b) => b.blended - a.blended);
+
+    const sortedQuotes = scored.map((q, i) => {
+      const rank = i + 1;
+      const isTop = rank === 1;
+      return {
+        ...q, rank, isTop,
+        cardStyle: { display: 'flex', alignItems: 'center', gap: 12, padding: 14, borderRadius: 12, border: isTop ? `1.5px solid ${orange}` : `1px solid ${border}`, margin: '0 16px 12px', background: '#fff', cursor: 'pointer' },
+        badgeStyle: { width: 28, height: 28, borderRadius: 14, background: isTop ? orange : navy, color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13, fontWeight: 700, flexShrink: 0 },
+        priceStyle: { fontWeight: 800, color: green, fontSize: 15 },
+        selectHandler: () => this.selectQuote(q.id),
+      };
+    });
+
+    const selectedQuote = sortedQuotes.find(q => q.id === s.selectedQuoteId) || sortedQuotes[0];
+    const priceScorePct = Math.max(10, 100 - (selectedQuote.price - 170) * 2);
+    const ratingScorePct = Math.round((selectedQuote.rating / 5) * 100);
+    const distScorePct = Math.max(10, 100 - selectedQuote.distance * 8);
+
+    const mkStepsList = (labels, current, onGo) => labels.map((label, i) => {
+      const active = i === current;
+      const done = i < current;
+      return {
+        n: i + 1, label,
+        dotStyle: {
+          width: 24, height: 24, borderRadius: 12, display: 'flex', alignItems: 'center', justifyContent: 'center',
+          fontSize: 10, fontWeight: 700,
+          background: active ? green : done ? '#CFEBDD' : '#fff',
+          color: active ? '#fff' : done ? green : muted,
+          border: active ? 'none' : `1.5px solid ${done ? '#CFEBDD' : border}`,
+          cursor: 'pointer',
+        },
+        onClick: () => onGo(i),
+      };
+    });
+
+    const customerStepsList = mkStepsList(this.customerLabels, s.customerStep, this.setCustomerStep);
+    const ownerStepsList = mkStepsList(this.ownerLabels, s.ownerStep, this.setOwnerStep);
+
+    const reviewStars = [1, 2, 3, 4, 5].map(n => ({
+      n, color: n <= s.reviewRating ? orange : '#D9D9D9',
+      onClick: () => this.setReviewRating(n),
+    }));
+
+    const landTypes = ['Agriculture', 'Residential', 'Commercial'].map(t => ({
+      label: t,
+      style: {
+        padding: '10px 14px', borderRadius: 999, fontSize: 13, fontWeight: 600, cursor: 'pointer',
+        background: s.requestForm.landType === t ? navy : '#fff',
+        color: s.requestForm.landType === t ? '#fff' : '#333',
+        border: s.requestForm.landType === t ? 'none' : `1px solid ${border}`,
+      },
+      onClick: () => this.setLandType(t),
+    }));
+
+    const milestonesList = this.milestones.map((label, i) => ({
+      label,
+      dotStyle: { width: 20, height: 20, borderRadius: 10, background: i <= s.milestoneIndex ? green : '#E5E7EB', flexShrink: 0 },
+    }));
+    const nextIdx = Math.min(this.milestones.length - 1, s.milestoneIndex + 1);
+    const nextMilestoneLabel = this.milestones[nextIdx];
+    const milestoneComplete = s.milestoneIndex >= this.milestones.length - 1;
+
+    const ownerJobs = [
+      { id: 'BK1256', status: 'Drilling in Progress', color: orange },
+      { id: 'BK1203', status: 'Completed', color: green },
+      { id: 'BK1180', status: 'Completed', color: green },
+    ].map(j => ({ ...j, onClick: () => this.setOwnerStep(6) }));
+
+    const workUpdates = [
+      { label: 'Reached Site', time: '21 May 2026, 08:30 AM' },
+      { label: 'Drilling Started', time: '21 May 2026, 09:15 AM' },
+      { label: '120 Ft Completed', time: '21 May 2026, 01:15 PM' },
+      { label: '250 Ft Completed', time: '21 May 2026, 05:40 PM' },
+    ];
+
+    const companies = s.companies.map(c => ({
+      ...c,
+      isPending: c.status === 'Pending',
+      statusStyle: { fontSize: 12, fontWeight: 700, padding: '4px 10px', borderRadius: 999, background: c.status === 'Verified' ? '#DCF3E7' : '#FCEBD9', color: c.status === 'Verified' ? green : orange },
+      toggleHandler: () => this.toggleVerify(c.id),
+    }));
+
+    const bookings = [
+      { id: 'BK1256', customer: 'Ramesh K.', company: 'Sri Sai Borewells', amount: '₹75,000', status: 'In Progress', color: orange },
+      { id: 'BK1203', customer: 'Kiran R.', company: 'Lakshmi Borewells', amount: '₹62,000', status: 'Completed', color: green },
+      { id: 'BK1180', customer: 'Priya S.', company: 'Shiva Borewells', amount: '₹58,500', status: 'Completed', color: green },
+      { id: 'BK1155', customer: 'Anil V.', company: 'Ganesh Borewells', amount: '₹49,000', status: 'Cancelled', color: '#C0392B' },
+    ].map(b => ({ ...b, customerClickHandler: () => b.id === 'BK1256' ? this.setState({ customerStep: 9 }) : null }));
+
+    const personaTab = (id) => ({
+      padding: '10px 20px', borderRadius: 999, fontSize: 14, fontWeight: 700, cursor: 'pointer', border: 'none',
+      background: s.persona === id ? green : 'rgba(255,255,255,0.12)',
+      color: '#fff',
+    });
+
+    return {
+      steps: {
+        c0: s.customerStep === 0, c1: s.customerStep === 1, c2: s.customerStep === 2, c3: s.customerStep === 3, c4: s.customerStep === 4,
+        c5: s.customerStep === 5, c6: s.customerStep === 6, c7: s.customerStep === 7, c8: s.customerStep === 8, c9: s.customerStep === 9,
+        c10: s.customerStep === 10, c11: s.customerStep === 11, c12: s.customerStep === 12, c13: s.customerStep === 13, c14: s.customerStep === 14,
+        o0: s.ownerStep === 0, o1: s.ownerStep === 1, o2: s.ownerStep === 2, o3: s.ownerStep === 3, o4: s.ownerStep === 4, o5: s.ownerStep === 5, o6: s.ownerStep === 6, o7: s.ownerStep === 7, o8: s.ownerStep === 8,
+        aDashboard: s.adminTab === 'dashboard', aCompanies: s.adminTab === 'companies', aBookings: s.adminTab === 'bookings', aAnalytics: s.adminTab === 'analytics',
+      },
+      customerPanelStyle: { display: s.persona === 'customer' ? 'flex' : 'none', flexDirection: 'column', alignItems: 'center' },
+      ownerPanelStyle: { display: s.persona === 'owner' ? 'flex' : 'none', flexDirection: 'column', alignItems: 'center' },
+      adminPanelStyle: { display: s.persona === 'admin' ? 'flex' : 'none', flexDirection: 'column', alignItems: 'center' },
+      customerTabStyle: personaTab('customer'),
+      ownerTabStyle: personaTab('owner'),
+      adminTabBtnStyle: personaTab('admin'),
+      selectCustomer: () => this.selectPersona('customer'),
+      selectOwner: () => this.selectPersona('owner'),
+      selectAdmin: () => this.selectPersona('admin'),
+
+      customerStepsList, ownerStepsList,
+      customerStepLabel: this.customerLabels[s.customerStep],
+      ownerStepLabel: this.ownerLabels[s.ownerStep],
+      adminHeaderLabel: s.adminLoggedIn ? s.adminTab : 'login',
+
+      mobile: s.mobile, setMobile: this.setMobile,
+      otp: s.otp, setOtp: this.setOtp,
+      sendOtp: this.sendOtp, verifyOtp: this.verifyOtp,
+      goCreateRequest: this.goCreateRequest, backCustomer: this.backCustomer, goToQuotations: this.goToQuotations,
+
+      requestForm: s.requestForm, updateDistrict: this.updateDistrict, updateMandal: this.updateMandal, updateDepth: this.updateDepth,
+      landTypes, submitRequest: this.submitRequest, confirmLocation: this.confirmLocation,
+
+      sortedQuotes, selectedQuote,
+      priceScorePct, ratingScorePct, distScorePct,
+      bookQuote: this.bookQuote, proceedPayment: this.proceedPayment, payFee: this.payFee,
+      goJobDetails: this.goJobDetails, goWorkUpdates: this.goWorkUpdates, goInvoice: this.goInvoice, goReview: this.goReview, goMyBookings: this.goMyBookings,
+      workUpdates,
+
+      reviewStars, reviewText: s.reviewText, setReviewText: this.setReviewText, submitReview: this.submitReview, reviewSubmitted: s.reviewSubmitted,
+
+      ownerMobile: s.ownerMobile, setOwnerMobile: this.setOwnerMobile, ownerOtp: s.ownerOtp, setOwnerOtp: this.setOwnerOtp,
+      ownerSendOtp: this.ownerSendOtp, ownerVerifyOtp: this.ownerVerifyOtp,
+      backOwner: this.backOwner, ownerGoLead: this.ownerGoLead, ownerGoSubmitQuote: this.ownerGoSubmitQuote, goOwnerProfile: this.goOwnerProfile,
+      bidAmount: s.bidAmount, setBidAmount: this.setBidAmount, submitQuote: this.submitQuote, ownerSubmitted: s.ownerSubmitted,
+      ownerJobs, milestonesList, nextMilestoneLabel, milestoneComplete, advanceMilestone: this.advanceMilestone,
+
+      adminTab: s.adminTab, setAdminTab: this.setAdminTab,
+      adminLoggedIn: s.adminLoggedIn, adminEmail: s.adminEmail, setAdminEmail: this.setAdminEmail,
+      adminPassword: s.adminPassword, setAdminPassword: this.setAdminPassword, adminLogin: this.adminLogin,
+      companies, bookings,
+      totalCompanies: companies.length,
+      adminNavItems: [
+        { key: 'dashboard', label: 'Dashboard' },
+        { key: 'companies', label: 'Companies' },
+        { key: 'bookings', label: 'Bookings' },
+        { key: 'analytics', label: 'Analytics' },
+      ].map(item => ({
+        ...item,
+        style: {
+          padding: '12px 20px', fontSize: 14, fontWeight: 700, cursor: 'pointer', color: '#fff',
+          background: s.adminTab === item.key ? 'rgba(255,255,255,0.14)' : 'transparent',
+          borderLeft: s.adminTab === item.key ? `3px solid ${green}` : '3px solid transparent',
+        },
+        onClick: () => this.setAdminTab(item.key),
+      })),
+    };
+  }
+}
+
+</script>
+</body>
+</html>

@@ -1,0 +1,14 @@
+{
+  "name": "borewell-connect",
+  "private": true,
+  "version": "1.0.0",
+  "scripts": {
+    "api:dev": "pnpm --filter @borewell/api dev",
+    "api:migrate": "pnpm --filter @borewell/api prisma:migrate",
+    "admin:dev": "pnpm --filter @borewell/admin dev",
+    "mobile:start": "pnpm --filter @borewell/mobile start"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

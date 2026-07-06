@@ -1,0 +1,223 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum LandType {
+  Agriculture
+  Residential
+  Commercial
+}
+
+enum RequestStatus {
+  OPEN
+  BOOKED
+  COMPLETED
+  CANCELLED
+}
+
+enum BookingStatus {
+  CONFIRMED
+  PAID
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+}
+
+enum CompanyStatus {
+  PENDING
+  VERIFIED
+}
+
+enum OtpPurpose {
+  CUSTOMER
+  OWNER
+}
+
+enum PaymentStatus {
+  CREATED
+  PAID
+  FAILED
+}
+
+model Customer {
+  id        String   @id @default(cuid())
+  phone     String   @unique
+  name      String?
+  createdAt DateTime @default(now())
+
+  requests BorewellRequest[]
+  bookings Booking[]
+}
+
+model Otp {
+  id        String     @id @default(cuid())
+  phone     String
+  purpose   OtpPurpose
+  code      String
+  expiresAt DateTime
+  verified  Boolean    @default(false)
+  createdAt DateTime   @default(now())
+
+  @@index([phone, purpose])
+}
+
+model Company {
+  id                 String        @id @default(cuid())
+  phone              String        @unique
+  name               String
+  ownerName          String
+  city               String
+  state              String
+  experienceYears    Int           @default(0)
+  registrationNumber String        @default("")
+  serviceAreas       String[]      @default([])
+  machineType        String        @default("DTH")
+  status             CompanyStatus @default(PENDING)
+  ratingAvg          Float         @default(4.5)
+  baseLat            Float         @default(17.53)
+  baseLng            Float         @default(78.12)
+  createdAt          DateTime      @default(now())
+
+  vehiclePhotos VehiclePhoto[]
+  quotes        Quote[]
+  bookings      Booking[]
+}
+
+model VehiclePhoto {
+  id        String   @id @default(cuid())
+  companyId String
+  slot      String
+  url       String
+  createdAt DateTime @default(now())
+
+  company Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  @@unique([companyId, slot])
+}
+
+model Admin {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  passwordHash String
+  createdAt    DateTime @default(now())
+}
+
+model BorewellRequest {
+  id            String        @id @default(cuid())
+  code          String        @unique
+  customerId    String
+  district      String
+  mandal        String
+  landType      LandType
+  depthFt       Int
+  lat           Float
+  lng           Float
+  preferredDate DateTime
+  status        RequestStatus @default(OPEN)
+  createdAt     DateTime      @default(now())
+
+  customer Customer @relation(fields: [customerId], references: [id])
+  quotes   Quote[]
+  booking  Booking?
+}
+
+model Quote {
+  id                   String   @id @default(cuid())
+  requestId            String
+  companyId            String
+  pricePerFt           Int
+  machineType          String
+  estimatedCompletion  String
+  createdAt            DateTime @default(now())
+
+  request BorewellRequest @relation(fields: [requestId], references: [id])
+  company Company         @relation(fields: [companyId], references: [id])
+  booking Booking?
+
+  @@unique([requestId, companyId])
+}
+
+model Booking {
+  id          String        @id @default(cuid())
+  code        String        @unique
+  requestId   String        @unique
+  quoteId     String        @unique
+  customerId  String
+  companyId   String
+  pricePerFt  Int
+  bookingFee  Int           @default(500)
+  status      BookingStatus @default(CONFIRMED)
+  createdAt   DateTime      @default(now())
+
+  request  BorewellRequest @relation(fields: [requestId], references: [id])
+  quote    Quote           @relation(fields: [quoteId], references: [id])
+  customer Customer        @relation(fields: [customerId], references: [id])
+  company  Company         @relation(fields: [companyId], references: [id])
+
+  milestones  Milestone[]
+  workUpdates WorkUpdate[]
+  invoice     Invoice?
+  review      Review?
+  payment     Payment?
+}
+
+model Milestone {
+  id          String    @id @default(cuid())
+  bookingId   String
+  label       String
+  order       Int
+  completedAt DateTime?
+
+  booking Booking @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+
+  @@unique([bookingId, order])
+}
+
+model WorkUpdate {
+  id        String   @id @default(cuid())
+  bookingId String
+  label     String
+  photoUrl  String?
+  createdAt DateTime @default(now())
+
+  booking Booking @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+}
+
+model Invoice {
+  id        String   @id @default(cuid())
+  code      String   @unique
+  bookingId String   @unique
+  lineItems Json
+  total     Int
+  createdAt DateTime @default(now())
+
+  booking Booking @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+}
+
+model Review {
+  id        String   @id @default(cuid())
+  bookingId String   @unique
+  rating    Int
+  text      String   @default("")
+  createdAt DateTime @default(now())
+
+  booking Booking @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+}
+
+model Payment {
+  id                String        @id @default(cuid())
+  bookingId         String        @unique
+  provider          String        @default("razorpay")
+  orderId           String
+  paymentId         String?
+  amount            Int
+  status            PaymentStatus @default(CREATED)
+  createdAt         DateTime      @default(now())
+
+  booking Booking @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+}
