@@ -6,7 +6,7 @@ import { Controller, useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import * as Location from "expo-location";
-import { api, RequestRow } from "../../api";
+import { api, RequestRow, setCustomerToken } from "../../api";
 import { c, font } from "../../theme";
 import { Card, Field, FieldLabel, PrimaryButton, ErrorText, ScreenTitle } from "../../components/ui";
 import { SelectLocationMap } from "../../components/SelectLocationMap";
@@ -29,20 +29,44 @@ type NewRequestForm = z.infer<typeof newRequestSchema>;
 
 export function CustomerHome({ navigation }: NativeStackScreenProps<CustomerStackParams, "CustomerHome">) {
   const [requests, setRequests] = useState<RequestRow[]>([]);
+  const [name, setName] = useState<string | null>(null);
 
   useFocusEffect(
     useCallback(() => {
       api.myRequests().then(setRequests).catch(console.error);
+      api.customerProfile().then((p) => setName(p.name)).catch(console.error);
     }, [])
   );
+
+  const logout = async () => {
+    await setCustomerToken(null);
+    navigation.getParent()?.reset({ index: 0, routes: [{ name: "RoleSelect" }] });
+  };
 
   return (
     <ScrollView style={{ flex: 1, backgroundColor: c.bg }} contentContainerStyle={{ paddingVertical: 16 }}>
       <View style={{ backgroundColor: c.navy, borderRadius: 16, marginHorizontal: 16, marginBottom: 20, padding: 20 }}>
-        <Text style={{ color: "#fff", fontSize: 19, fontFamily: font.extrabold }}>Hello!</Text>
-        <Text style={{ color: "rgba(255,255,255,0.75)", fontSize: 13, marginTop: 4, fontFamily: font.regular }}>
-          Need a borewell? Get quotes from verified companies near you.
-        </Text>
+        <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start" }}>
+          <View style={{ flex: 1 }}>
+            <Text style={{ color: "#fff", fontSize: 19, fontFamily: font.extrabold }}>Hello{name ? `, ${name}` : ""}!</Text>
+            <Text style={{ color: "rgba(255,255,255,0.75)", fontSize: 13, marginTop: 4, fontFamily: font.regular }}>
+              Need a borewell? Get quotes from verified companies near you.
+            </Text>
+          </View>
+          <Pressable
+            onPress={() => navigation.navigate("CompleteProfile")}
+            style={{
+              width: 34,
+              height: 34,
+              borderRadius: 17,
+              backgroundColor: "rgba(255,255,255,0.15)",
+              alignItems: "center",
+              justifyContent: "center",
+            }}
+          >
+            <Text style={{ color: "#fff", fontSize: 15 }}>⚙</Text>
+          </Pressable>
+        </View>
         <Pressable
           onPress={() => navigation.navigate("NewRequest")}
           style={{
@@ -104,6 +128,10 @@ export function CustomerHome({ navigation }: NativeStackScreenProps<CustomerStac
           </Card>
         </Pressable>
       ))}
+
+      <Pressable onPress={logout} style={{ marginTop: 20, alignItems: "center" }}>
+        <Text style={{ fontSize: 13, fontFamily: font.bold, color: c.danger }}>Log Out</Text>
+      </Pressable>
     </ScrollView>
   );
 }

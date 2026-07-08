@@ -532,6 +532,11 @@ export function OwnerProfile({ navigation }: NativeStackScreenProps<OwnerStackPa
     showToast("Photo removed");
   };
 
+  const logout = async () => {
+    await setOwnerToken(null);
+    navigation.getParent()?.reset({ index: 0, routes: [{ name: "RoleSelect" }] });
+  };
+
   if (!profile) return <LoadingScreen />;
 
   return (
@@ -668,6 +673,9 @@ export function OwnerProfile({ navigation }: NativeStackScreenProps<OwnerStackPa
       </View>
 
       <PrimaryButton title="Edit Profile" outline onPress={() => navigation.navigate("EditProfile")} />
+      <Pressable onPress={logout} style={{ marginTop: 22, alignItems: "center" }}>
+        <Text style={{ fontSize: 13, fontFamily: font.bold, color: c.danger }}>Log Out</Text>
+      </Pressable>
     </ScrollView>
   );
 }
