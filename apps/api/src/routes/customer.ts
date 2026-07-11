@@ -1,9 +1,10 @@
 import { Router } from "express";
 import { z } from "zod";
-import { blendedScore, MILESTONES } from "@borewell/shared";
+import { blendedScore, computeTotalFromBands, MAX_DEPTH_FT, MILESTONES } from "@borewell/shared";
 import { prisma } from "../prisma";
 import { AuthedRequest, requireAuth } from "../auth";
 import { distanceKm, genBookingCode, genRequestCode } from "../util/codes";
+import { companyServiceAreaFilter, isSameCalendarDay } from "../util/matching";
 import { createOrder, verifyPaymentSignature } from "../services/razorpay";
 import { env } from "../env";
 
@@ -37,10 +38,10 @@ const requestSchema = z.object({
   district: z.string().min(1),
   mandal: z.string().min(1),
   landType: z.enum(["Agriculture", "Residential", "Commercial"]),
-  depthFt: z.coerce.number().int().positive(),
+  depthFt: z.coerce.number().int().positive().max(MAX_DEPTH_FT),
   lat: z.coerce.number(),
   lng: z.coerce.number(),
-  preferredDate: z.coerce.date().optional(),
+  preferredDate: z.coerce.date(),
 });
 
 customerRouter.post("/requests", async (req: AuthedRequest, res) => {
@@ -50,11 +51,33 @@ customerRouter.post("/requests", async (req: AuthedRequest, res) => {
   const request = await prisma.borewellRequest.create({
     data: {
       ...parsed.data,
-      preferredDate: parsed.data.preferredDate ?? new Date(Date.now() + 7 * 86400000),
       code: genRequestCode(),
       customerId: req.auth!.sub,
     },
   });
+
+  // Auto-generate a quote from every company that services this area, has priced this
+  // depth, and marked itself available on the required date — no manual owner action.
+  const bandsNeeded = Math.ceil(request.depthFt / 100);
+  const candidates = await prisma.company.findMany({
+    where: companyServiceAreaFilter(request.district, request.mandal),
+  });
+  const eligible = candidates.filter(
+    (c) => c.rateCard.length >= bandsNeeded && c.availableDates.some((d) => isSameCalendarDay(d, request.preferredDate))
+  );
+  if (eligible.length) {
+    await prisma.quote.createMany({
+      data: eligible.map((c) => ({
+        requestId: request.id,
+        companyId: c.id,
+        bandRates: c.rateCard.slice(0, bandsNeeded),
+        machineType: c.machineType,
+        estimatedCompletion: c.estimatedCompletion,
+        casingRate: c.casingRate,
+      })),
+    });
+  }
+
   res.status(201).json(request);
 });
 
@@ -84,18 +107,23 @@ customerRouter.get("/requests/:id/quotes", async (req: AuthedRequest, res) => {
   const ranked = quotes
     .map((q) => {
       const dist = distanceKm(request.lat, request.lng, q.company.baseLat, q.company.baseLng);
+      const totalPrice = computeTotalFromBands(q.bandRates, request.depthFt);
+      const effectiveRate = totalPrice / request.depthFt;
       return {
         id: q.id,
         requestId: q.requestId,
         companyId: q.companyId,
         companyName: q.company.name,
-        pricePerFt: q.pricePerFt,
+        bandRates: q.bandRates,
+        totalPrice,
+        depthFt: request.depthFt,
+        casingRate: q.casingRate,
         machineType: q.machineType,
         estimatedCompletion: q.estimatedCompletion,
         rating: q.company.ratingAvg,
         distanceKm: dist,
         yearsExperience: q.company.experienceYears,
-        blendedScore: blendedScore({ rating: q.company.ratingAvg, price: q.pricePerFt, distanceKm: dist }),
+        blendedScore: blendedScore({ rating: q.company.ratingAvg, price: effectiveRate, distanceKm: dist }),
       };
     })
     .sort((a, b) => b.blendedScore - a.blendedScore)
@@ -123,7 +151,8 @@ customerRouter.post("/quotes/:quoteId/book", async (req: AuthedRequest, res) => 
         quoteId: quote.id,
         customerId: req.auth!.sub,
         companyId: quote.companyId,
-        pricePerFt: quote.pricePerFt,
+        bandRates: quote.bandRates,
+        casingRate: quote.casingRate,
       },
     });
     await tx.borewellRequest.update({ where: { id: quote.requestId }, data: { status: "BOOKED" } });
@@ -201,6 +230,7 @@ customerRouter.get("/bookings/:id", async (req: AuthedRequest, res) => {
     where: { id: req.params.id, customerId: req.auth!.sub },
     include: {
       company: true,
+      request: true,
       milestones: { orderBy: { order: "asc" } },
       workUpdates: { orderBy: { createdAt: "asc" } },
       invoice: true,
@@ -215,7 +245,8 @@ customerRouter.get("/bookings/:id", async (req: AuthedRequest, res) => {
     id: booking.id,
     code: booking.code,
     status: booking.status,
-    pricePerFt: booking.pricePerFt,
+    bandRates: booking.bandRates,
+    totalPrice: computeTotalFromBands(booking.bandRates, booking.request.depthFt),
     bookingFee: booking.bookingFee,
     createdAt: booking.createdAt,
     company: {

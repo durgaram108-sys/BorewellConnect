@@ -61,3 +61,23 @@ export type CompanyStatus = (typeof COMPANY_STATUS)[keyof typeof COMPANY_STATUS]
 export function blendedScore(q: { rating: number; price: number; distanceKm: number }): number {
   return Math.round((q.rating * 20 - q.price * 0.12 - q.distanceKm * 2.5) * 10) / 10;
 }
+
+export const DEPTH_BAND_SIZE_FT = 100;
+export const MAX_DEPTH_FT = 2000;
+
+/**
+ * Depth-banded pricing total: bandRates[0] covers ft 1-100, bandRates[1]
+ * covers ft 101-200, etc. Each band contributes its rate times however
+ * much of the request's depth actually falls in that band.
+ */
+export function computeTotalFromBands(bandRates: number[], depthFt: number): number {
+  let total = 0;
+  let remaining = depthFt;
+  for (const rate of bandRates) {
+    if (remaining <= 0) break;
+    const ftInBand = Math.min(DEPTH_BAND_SIZE_FT, remaining);
+    total += ftInBand * rate;
+    remaining -= DEPTH_BAND_SIZE_FT;
+  }
+  return total;
+}

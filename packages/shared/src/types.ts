@@ -17,6 +17,7 @@ export interface CompanyDTO {
   registrationNumber: string;
   serviceAreas: string[];
   machineType: string;
+  rateCard: number[];
   verified: boolean;
   vehiclePhotos: { slot: string; url: string }[];
 }
@@ -40,7 +41,8 @@ export interface QuoteDTO {
   requestId: string;
   companyId: string;
   companyName: string;
-  pricePerFt: number;
+  bandRates: number[];
+  totalPrice: number;
   machineType: string;
   estimatedCompletion: string;
   rating: number;
@@ -62,7 +64,8 @@ export interface BookingDTO {
   companyPhone?: string;
   customerName?: string;
   customerPhone?: string;
-  pricePerFt: number;
+  bandRates: number[];
+  totalPrice: number;
   bookingFee: number;
   status: "CONFIRMED" | "PAID" | "IN_PROGRESS" | "COMPLETED" | "CANCELLED";
   createdAt: string;

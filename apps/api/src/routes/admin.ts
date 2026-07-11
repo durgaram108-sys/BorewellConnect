@@ -1,4 +1,5 @@
 import { Router } from "express";
+import { computeTotalFromBands } from "@borewell/shared";
 import { prisma } from "../prisma";
 import { requireAuth } from "../auth";
 
@@ -28,7 +29,7 @@ adminRouter.get("/dashboard", async (_req, res) => {
       code: b.code,
       customerName: b.customer.name ?? b.customer.phone,
       companyName: b.company.name,
-      amount: b.invoice?.total ?? b.request.depthFt * b.pricePerFt,
+      amount: b.invoice?.total ?? computeTotalFromBands(b.bandRates, b.request.depthFt),
       status: b.status,
     })),
   });
@@ -58,7 +59,7 @@ adminRouter.get("/bookings", async (_req, res) => {
       code: b.code,
       customerName: b.customer.name ?? b.customer.phone,
       companyName: b.company.name,
-      amount: b.invoice?.total ?? b.request.depthFt * b.pricePerFt,
+      amount: b.invoice?.total ?? computeTotalFromBands(b.bandRates, b.request.depthFt),
       status: b.status,
       createdAt: b.createdAt,
     }))

@@ -79,6 +79,10 @@ model Company {
   registrationNumber String        @default("")
   serviceAreas       String[]      @default([])
   machineType        String        @default("DTH")
+  rateCard           Int[]         @default([])
+  casingRate         Int           @default(11500)
+  estimatedCompletion String       @default("3–4 days")
+  availableDates     DateTime[]    @default([])
   status             CompanyStatus @default(PENDING)
   ratingAvg          Float         @default(4.5)
   baseLat            Float         @default(17.53)
@@ -144,9 +148,10 @@ model Quote {
   id                   String   @id @default(cuid())
   requestId            String
   companyId            String
-  pricePerFt           Int
+  bandRates            Int[]    @default([])
   machineType          String
   estimatedCompletion  String
+  casingRate           Int      @default(11500)
   createdAt            DateTime @default(now())
 
   request BorewellRequest @relation(fields: [requestId], references: [id])
@@ -163,7 +168,8 @@ model Booking {
   quoteId     String        @unique
   customerId  String
   companyId   String
-  pricePerFt  Int
+  bandRates   Int[]         @default([])
+  casingRate  Int           @default(11500)
   bookingFee  Int           @default(500)
   status      BookingStatus @default(CONFIRMED)
   createdAt   DateTime      @default(now())

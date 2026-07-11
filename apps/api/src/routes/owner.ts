@@ -1,5 +1,6 @@
 import { Router } from "express";
 import { z } from "zod";
+import { computeTotalFromBands } from "@borewell/shared";
 import { prisma } from "../prisma";
 import { AuthedRequest, requireAuth } from "../auth";
 import { genInvoiceCode } from "../util/codes";
@@ -7,61 +8,39 @@ import { genInvoiceCode } from "../util/codes";
 export const ownerRouter = Router();
 ownerRouter.use(requireAuth("owner"));
 
-/** Open leads in the company's service area — customer identity/contact withheld. */
+/**
+ * Requests this company has been auto-matched to (a Quote already exists — generated
+ * from their saved rate card at request-creation time). Read-only: no manual bidding.
+ * Customer identity/contact withheld until the customer books & pays.
+ */
 ownerRouter.get("/leads", async (req: AuthedRequest, res) => {
   const company = await prisma.company.findUnique({ where: { id: req.auth!.sub } });
   if (!company) return res.status(404).json({ error: "Company not found" });
 
-  const leads = await prisma.borewellRequest.findMany({
-    where: {
-      status: "OPEN",
-      quotes: { none: { companyId: company.id } },
-      ...(company.serviceAreas.length
-        ? { OR: [{ district: { in: company.serviceAreas } }, { mandal: { in: company.serviceAreas } }] }
-        : {}),
-    },
+  const requests = await prisma.borewellRequest.findMany({
+    where: { status: "OPEN", quotes: { some: { companyId: company.id } } },
     orderBy: { createdAt: "desc" },
+    include: { quotes: { where: { companyId: company.id } } },
   });
 
-  // Only the job facts owners need to bid — no customer name/phone/exact coords.
   res.json(
-    leads.map((l) => ({
-      id: l.id,
-      code: l.code,
-      country: l.country,
-      state: l.state,
-      district: l.district,
-      mandal: l.mandal,
-      landType: l.landType,
-      depthFt: l.depthFt,
-      preferredDate: l.preferredDate,
-      createdAt: l.createdAt,
-    }))
+    requests.map((l) => {
+      const quote = l.quotes[0];
+      return {
+        id: l.id,
+        code: l.code,
+        country: l.country,
+        state: l.state,
+        district: l.district,
+        mandal: l.mandal,
+        landType: l.landType,
+        depthFt: l.depthFt,
+        preferredDate: l.preferredDate,
+        createdAt: l.createdAt,
+        totalPrice: computeTotalFromBands(quote.bandRates, l.depthFt),
+      };
+    })
   );
-});
-
-const quoteSchema = z.object({
-  pricePerFt: z.coerce.number().int().positive(),
-  machineType: z.string().min(1).default("DTH"),
-  estimatedCompletion: z.string().min(1).default("3–4 days"),
-});
-
-ownerRouter.post("/leads/:requestId/quote", async (req: AuthedRequest, res) => {
-  const parsed = quoteSchema.safeParse(req.body);
-  if (!parsed.success) return res.status(400).json({ error: parsed.error.issues[0].message });
-
-  const request = await prisma.borewellRequest.findUnique({ where: { id: req.params.requestId } });
-  if (!request || request.status !== "OPEN") return res.status(404).json({ error: "Lead not open" });
-
-  const existing = await prisma.quote.findUnique({
-    where: { requestId_companyId: { requestId: request.id, companyId: req.auth!.sub } },
-  });
-  if (existing) return res.status(409).json({ error: "Quote already submitted for this lead" });
-
-  const quote = await prisma.quote.create({
-    data: { requestId: request.id, companyId: req.auth!.sub, ...parsed.data },
-  });
-  res.status(201).json(quote);
 });
 
 /** Jobs = bookings won by this company. Customer contact revealed (customer already paid). */
@@ -84,7 +63,8 @@ ownerRouter.get("/jobs", async (req: AuthedRequest, res) => {
         id: j.id,
         code: j.code,
         status: j.status,
-        pricePerFt: j.pricePerFt,
+        bandRates: j.bandRates,
+        totalPrice: computeTotalFromBands(j.bandRates, j.request.depthFt),
         district: j.request.district,
         mandal: j.request.mandal,
         depthFt: j.request.depthFt,
@@ -117,8 +97,8 @@ ownerRouter.post("/jobs/:id/milestones/advance", async (req: AuthedRequest, res)
     await tx.workUpdate.create({ data: { bookingId: booking.id, label: next.label } });
 
     if (isLast) {
-      const drilling = booking.request.depthFt * booking.pricePerFt;
-      const machineCasing = 11500;
+      const drilling = computeTotalFromBands(booking.bandRates, booking.request.depthFt);
+      const machineCasing = booking.casingRate;
       const total = drilling + machineCasing - booking.bookingFee;
       await tx.invoice.create({
         data: {
@@ -126,7 +106,7 @@ ownerRouter.post("/jobs/:id/milestones/advance", async (req: AuthedRequest, res)
           bookingId: booking.id,
           total,
           lineItems: [
-            { label: `Drilling (${booking.request.depthFt} ft × ₹${booking.pricePerFt}/ft)`, amount: drilling },
+            { label: `Drilling (${booking.request.depthFt} ft, banded rate)`, amount: drilling },
             { label: "Machine & Casing Charges", amount: machineCasing },
             { label: "Booking Fee (paid)", amount: -booking.bookingFee },
           ],
@@ -201,6 +181,10 @@ const profileSchema = z.object({
   registrationNumber: z.string().optional(),
   serviceAreas: z.array(z.string()).optional(),
   machineType: z.string().optional(),
+  rateCard: z.array(z.coerce.number().int().positive()).optional(),
+  casingRate: z.coerce.number().int().positive().optional(),
+  estimatedCompletion: z.string().min(1).optional(),
+  availableDates: z.array(z.coerce.date()).optional(),
   baseLat: z.coerce.number().optional(),
   baseLng: z.coerce.number().optional(),
 });
