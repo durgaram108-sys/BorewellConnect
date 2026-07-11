@@ -63,7 +63,10 @@ customerRouter.post("/requests", async (req: AuthedRequest, res) => {
     where: companyServiceAreaFilter(request.district, request.mandal),
   });
   const eligible = candidates.filter(
-    (c) => c.rateCard.length >= bandsNeeded && c.availableDates.some((d) => isSameCalendarDay(d, request.preferredDate))
+    (c) =>
+      c.maxDepthFt >= request.depthFt &&
+      c.rateCard.length >= bandsNeeded &&
+      c.availableDates.some((d) => isSameCalendarDay(d, request.preferredDate))
   );
   if (eligible.length) {
     await prisma.quote.createMany({
@@ -107,7 +110,8 @@ customerRouter.get("/requests/:id/quotes", async (req: AuthedRequest, res) => {
   const ranked = quotes
     .map((q) => {
       const dist = distanceKm(request.lat, request.lng, q.company.baseLat, q.company.baseLng);
-      const totalPrice = computeTotalFromBands(q.bandRates, request.depthFt);
+      const drillingTotal = computeTotalFromBands(q.bandRates, request.depthFt);
+      const totalPrice = drillingTotal + q.casingRate;
       const effectiveRate = totalPrice / request.depthFt;
       return {
         id: q.id,
@@ -130,6 +134,29 @@ customerRouter.get("/requests/:id/quotes", async (req: AuthedRequest, res) => {
     .map((q, i) => ({ ...q, rank: i + 1, isTop: i === 0 }));
 
   res.json(ranked);
+});
+
+/** Public company profile for a customer to review before booking — phone/exact address withheld until booked & paid. */
+customerRouter.get("/companies/:id", async (req: AuthedRequest, res) => {
+  const company = await prisma.company.findUnique({
+    where: { id: req.params.id },
+    include: { vehiclePhotos: true, borewellPhotos: true },
+  });
+  if (!company) return res.status(404).json({ error: "Company not found" });
+
+  res.json({
+    id: company.id,
+    name: company.name,
+    city: company.city,
+    state: company.state,
+    experienceYears: company.experienceYears,
+    machineType: company.machineType,
+    registrationNumber: company.registrationNumber,
+    ratingAvg: company.ratingAvg,
+    serviceAreas: company.serviceAreas,
+    vehiclePhotos: company.vehiclePhotos.map((p) => ({ slot: p.slot, url: p.url })),
+    borewellPhotos: company.borewellPhotos.map((p) => ({ id: p.id, url: p.url })),
+  });
 });
 
 /** Book a quote: creates the booking (contact details stay hidden until fee is paid). */

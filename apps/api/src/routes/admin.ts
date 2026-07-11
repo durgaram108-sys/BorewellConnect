@@ -29,7 +29,7 @@ adminRouter.get("/dashboard", async (_req, res) => {
       code: b.code,
       customerName: b.customer.name ?? b.customer.phone,
       companyName: b.company.name,
-      amount: b.invoice?.total ?? computeTotalFromBands(b.bandRates, b.request.depthFt),
+      amount: b.invoice?.total ?? computeTotalFromBands(b.bandRates, b.request.depthFt) + b.casingRate - b.bookingFee,
       status: b.status,
     })),
   });
@@ -59,7 +59,7 @@ adminRouter.get("/bookings", async (_req, res) => {
       code: b.code,
       customerName: b.customer.name ?? b.customer.phone,
       companyName: b.company.name,
-      amount: b.invoice?.total ?? computeTotalFromBands(b.bandRates, b.request.depthFt),
+      amount: b.invoice?.total ?? computeTotalFromBands(b.bandRates, b.request.depthFt) + b.casingRate - b.bookingFee,
       status: b.status,
       createdAt: b.createdAt,
     }))

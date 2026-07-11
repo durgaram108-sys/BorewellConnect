@@ -79,6 +79,7 @@ model Company {
   registrationNumber String        @default("")
   serviceAreas       String[]      @default([])
   machineType        String        @default("DTH")
+  maxDepthFt         Int           @default(0)
   rateCard           Int[]         @default([])
   casingRate         Int           @default(11500)
   estimatedCompletion String       @default("3–4 days")

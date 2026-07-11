@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { z } from "zod";
-import { computeTotalFromBands } from "@borewell/shared";
+import { computeTotalFromBands, MAX_DEPTH_FT } from "@borewell/shared";
 import { prisma } from "../prisma";
 import { AuthedRequest, requireAuth } from "../auth";
 import { genInvoiceCode } from "../util/codes";
@@ -37,7 +37,7 @@ ownerRouter.get("/leads", async (req: AuthedRequest, res) => {
         depthFt: l.depthFt,
         preferredDate: l.preferredDate,
         createdAt: l.createdAt,
-        totalPrice: computeTotalFromBands(quote.bandRates, l.depthFt),
+        totalPrice: computeTotalFromBands(quote.bandRates, l.depthFt) + quote.casingRate,
       };
     })
   );
@@ -64,7 +64,7 @@ ownerRouter.get("/jobs", async (req: AuthedRequest, res) => {
         code: j.code,
         status: j.status,
         bandRates: j.bandRates,
-        totalPrice: computeTotalFromBands(j.bandRates, j.request.depthFt),
+        totalPrice: computeTotalFromBands(j.bandRates, j.request.depthFt) + j.casingRate,
         district: j.request.district,
         mandal: j.request.mandal,
         depthFt: j.request.depthFt,
@@ -181,13 +181,17 @@ const profileSchema = z.object({
   registrationNumber: z.string().optional(),
   serviceAreas: z.array(z.string()).optional(),
   machineType: z.string().optional(),
+  maxDepthFt: z.coerce.number().int().positive().max(MAX_DEPTH_FT).optional(),
   rateCard: z.array(z.coerce.number().int().positive()).optional(),
   casingRate: z.coerce.number().int().positive().optional(),
   estimatedCompletion: z.string().min(1).optional(),
   availableDates: z.array(z.coerce.date()).optional(),
   baseLat: z.coerce.number().optional(),
   baseLng: z.coerce.number().optional(),
-});
+}).refine(
+  (data) => data.maxDepthFt === undefined || data.rateCard === undefined || data.rateCard.length === Math.ceil(data.maxDepthFt / 100),
+  { message: "Rate card must have exactly one rate per 100ft band up to your max depth" }
+);
 
 ownerRouter.patch("/profile", async (req: AuthedRequest, res) => {
   const parsed = profileSchema.safeParse(req.body);
