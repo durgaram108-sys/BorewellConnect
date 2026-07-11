@@ -31,7 +31,6 @@ import {
   OwnerOtp,
   OwnerDashboard,
   NewLeads,
-  SubmitQuote,
   ActiveJobs,
   JobUpdate,
   Earnings,
@@ -79,7 +78,6 @@ function OwnerFlow() {
       <OwnerStack.Screen name="OwnerOtp" component={OwnerOtp} />
       <OwnerStack.Screen name="OwnerDashboard" component={OwnerDashboard} />
       <OwnerStack.Screen name="NewLeads" component={NewLeads} />
-      <OwnerStack.Screen name="SubmitQuote" component={SubmitQuote} />
       <OwnerStack.Screen name="ActiveJobs" component={ActiveJobs} />
       <OwnerStack.Screen name="JobUpdate" component={JobUpdate} />
       <OwnerStack.Screen name="Earnings" component={Earnings} />

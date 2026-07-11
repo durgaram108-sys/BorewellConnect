@@ -9,20 +9,46 @@ import * as ImagePicker from "expo-image-picker";
 import { api, CompanyProfile, Lead, OwnerJob, setOwnerToken } from "../../api";
 import { c, font, inr, statusColor, statusLabel } from "../../theme";
 import { Card, Field, FieldLabel, LoadingScreen, PrimaryButton, ErrorText, ScreenTitle } from "../../components/ui";
+import { MultiSelectField, SelectField } from "../../components/Picker";
+import { RateCardField } from "../../components/RateCardField";
+import { CalendarField } from "../../components/CalendarField";
 import { showToast } from "../../components/Toast";
+import { ALL_DISTRICTS, DISTRICTS_BY_STATE, INDIA_STATES } from "../../data/indiaLocations";
+import { bandsNeededForDepth, MAX_DEPTH_FT } from "../../utils/pricing";
 import type { OwnerStackParams } from "../../navigation";
 
 const editProfileSchema = z.object({
   name: z.string().min(1, "Enter company name"),
   ownerName: z.string().min(1, "Enter owner name"),
   address: z.string().optional(),
-  city: z.string().min(1, "Enter city"),
+  state: z.string().min(1, "Select your state"),
+  city: z.string().min(1, "Select your district"),
   experienceYears: z.string().refine((v) => v.trim() !== "" && !isNaN(Number(v)) && Number(v) >= 0, "Enter valid years"),
   registrationNumber: z.string().optional(),
-  serviceAreas: z.string(),
+  serviceAreas: z.array(z.string()).min(1, "Select at least one service area"),
   machineType: z.string().min(1, "Enter machine type"),
+  casingRate: z.string().refine((v) => v.trim() !== "" && !isNaN(Number(v)) && Number(v) > 0, "Enter a valid amount"),
+  estimatedCompletion: z.string().min(1, "Enter an estimated completion time"),
 });
 type EditProfileForm = z.infer<typeof editProfileSchema>;
+
+/** Trims a sparse top-down rate list at the first gap — a driller who only fills bands 1-4 has a 4-entry rate card. */
+function trimRateCard(inputs: (number | undefined)[]): number[] {
+  const trimmed: number[] = [];
+  for (const v of inputs) {
+    if (v == null || isNaN(v) || v <= 0) break;
+    trimmed.push(v);
+  }
+  return trimmed;
+}
+
+function padRateCard(rateCard: number[], length: number): (number | undefined)[] {
+  const padded: (number | undefined)[] = Array(length).fill(undefined);
+  rateCard.forEach((v, i) => {
+    if (i < length) padded[i] = v;
+  });
+  return padded;
+}
 
 export function OwnerLogin({ navigation }: NativeStackScreenProps<OwnerStackParams, "OwnerLogin">) {
   const [phone, setPhone] = useState("");
@@ -243,13 +269,21 @@ export function NewLeads({ navigation }: NativeStackScreenProps<OwnerStackParams
 
   return (
     <ScrollView style={{ flex: 1, backgroundColor: c.bg }} contentContainerStyle={{ padding: 20 }}>
-      <ScreenTitle title="New Leads" onBack={() => navigation.goBack()} />
+      <ScreenTitle title="Matched Requests" onBack={() => navigation.goBack()} />
+      <Text style={{ fontSize: 12, color: c.mutedLight, marginTop: -8, marginBottom: 16, fontFamily: font.regular }}>
+        A quote is sent automatically using your saved rates — no action needed.
+      </Text>
       {leads.length === 0 && (
-        <Text style={{ fontSize: 13, color: c.muted, fontFamily: font.regular }}>No open leads in your service areas.</Text>
+        <Text style={{ fontSize: 13, color: c.muted, fontFamily: font.regular }}>
+          No matched requests yet — make sure your service areas, pricing, and available dates are up to date.
+        </Text>
       )}
       {leads.map((l) => (
         <Card key={l.id} style={{ padding: 16, marginBottom: 14 }}>
-          <Text style={{ fontSize: 16, fontFamily: font.extrabold, color: c.text }}>{l.code}</Text>
+          <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start" }}>
+            <Text style={{ fontSize: 16, fontFamily: font.extrabold, color: c.text }}>{l.code}</Text>
+            <Text style={{ fontSize: 15, fontFamily: font.extrabold, color: c.green }}>{inr(l.totalPrice)}</Text>
+          </View>
           <Text style={{ fontSize: 13, color: c.muted, marginTop: 8, fontFamily: font.regular }}>
             📍 {l.district}, {l.state}, {l.country}
           </Text>
@@ -260,11 +294,6 @@ export function NewLeads({ navigation }: NativeStackScreenProps<OwnerStackParams
           <Text style={{ fontSize: 13, color: c.muted, marginTop: 6, fontFamily: font.regular }}>
             Preferred Date: {fmtDate(l.preferredDate)}
           </Text>
-          <PrimaryButton
-            title="Submit Quote"
-            onPress={() => navigation.navigate("SubmitQuote", { requestId: l.id, code: l.code })}
-            style={{ marginTop: 16 }}
-          />
         </Card>
       ))}
       <Text style={{ fontSize: 12, color: c.mutedLight, fontStyle: "italic", marginTop: 4, fontFamily: font.regular }}>
@@ -274,50 +303,8 @@ export function NewLeads({ navigation }: NativeStackScreenProps<OwnerStackParams
   );
 }
 
-export function SubmitQuote({ navigation, route }: NativeStackScreenProps<OwnerStackParams, "SubmitQuote">) {
-  const { requestId } = route.params;
-  const [price, setPrice] = useState("");
-  const [machine, setMachine] = useState("DTH");
-  const [eta, setEta] = useState("3–4 days");
-  const [error, setError] = useState("");
-  const [busy, setBusy] = useState(false);
-
-  const submit = async () => {
-    const pricePerFt = Number(price);
-    if (!pricePerFt || pricePerFt <= 0) return setError("Enter your price per foot");
-    setBusy(true);
-    setError("");
-    try {
-      await api.submitQuote(requestId, { pricePerFt, machineType: machine, estimatedCompletion: eta });
-      navigation.reset({
-        index: 1,
-        routes: [{ name: "OwnerDashboard" }, { name: "ActiveJobs", params: { justSubmitted: true } }],
-      });
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "Failed to submit quote");
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  return (
-    <ScrollView style={{ flex: 1, backgroundColor: c.bg }} contentContainerStyle={{ padding: 20 }}>
-      <ScreenTitle title="Submit Quote" onBack={() => navigation.goBack()} />
-      <FieldLabel>PRICE PER FT (₹)</FieldLabel>
-      <Field value={price} onChangeText={setPrice} keyboardType="number-pad" placeholder="e.g. 185" style={{ fontSize: 16 }} />
-      <FieldLabel>MACHINE TYPE</FieldLabel>
-      <Field value={machine} onChangeText={setMachine} />
-      <FieldLabel>ESTIMATED COMPLETION</FieldLabel>
-      <Field value={eta} onChangeText={setEta} style={{ marginBottom: 22 }} />
-      <ErrorText>{error}</ErrorText>
-      <PrimaryButton title="Submit Quotation" onPress={submit} busy={busy} />
-    </ScrollView>
-  );
-}
-
-export function ActiveJobs({ navigation, route }: NativeStackScreenProps<OwnerStackParams, "ActiveJobs">) {
+export function ActiveJobs({ navigation }: NativeStackScreenProps<OwnerStackParams, "ActiveJobs">) {
   const [jobs, setJobs] = useState<OwnerJob[]>([]);
-  const justSubmitted = route.params?.justSubmitted;
 
   useFocusEffect(
     useCallback(() => {
@@ -326,28 +313,10 @@ export function ActiveJobs({ navigation, route }: NativeStackScreenProps<OwnerSt
   );
 
   return (
-    <ScrollView style={{ flex: 1, backgroundColor: c.bg }} contentContainerStyle={{ paddingVertical: 16 }}>
-      <Text style={{ fontSize: 20, fontFamily: font.extrabold, paddingHorizontal: 16, paddingBottom: 6, color: c.text }}>
-        Active Jobs
-      </Text>
-      {justSubmitted && (
-        <View
-          style={{
-            backgroundColor: c.successBg,
-            paddingVertical: 10,
-            paddingHorizontal: 14,
-            marginHorizontal: 16,
-            marginVertical: 8,
-            borderRadius: 10,
-          }}
-        >
-          <Text style={{ color: c.successText, fontSize: 12, fontFamily: font.bold }}>
-            Quotation submitted successfully
-          </Text>
-        </View>
-      )}
+    <ScrollView style={{ flex: 1, backgroundColor: c.bg }} contentContainerStyle={{ padding: 20 }}>
+      <ScreenTitle title="Active Jobs" onBack={() => navigation.goBack()} />
       {jobs.length === 0 && (
-        <Text style={{ paddingHorizontal: 16, fontSize: 13, color: c.muted, fontFamily: font.regular }}>
+        <Text style={{ fontSize: 13, color: c.muted, fontFamily: font.regular }}>
           No jobs yet — you'll see bookings here once a customer selects your quote.
         </Text>
       )}
@@ -358,7 +327,6 @@ export function ActiveJobs({ navigation, route }: NativeStackScreenProps<OwnerSt
               flexDirection: "row",
               justifyContent: "space-between",
               alignItems: "center",
-              marginHorizontal: 16,
               marginBottom: 12,
             }}
           >
@@ -424,7 +392,7 @@ export function JobUpdate({ navigation, route }: NativeStackScreenProps<OwnerSta
   );
 }
 
-export function Earnings(_props: NativeStackScreenProps<OwnerStackParams, "Earnings">) {
+export function Earnings({ navigation }: NativeStackScreenProps<OwnerStackParams, "Earnings">) {
   const [data, setData] = useState<{ thisMonth: number; recentPayouts: { code: string; amount: number }[] } | null>(null);
 
   useFocusEffect(
@@ -440,7 +408,7 @@ export function Earnings(_props: NativeStackScreenProps<OwnerStackParams, "Earni
 
   return (
     <ScrollView style={{ flex: 1, backgroundColor: c.bg }} contentContainerStyle={{ padding: 20 }}>
-      <Text style={{ fontSize: 20, fontFamily: font.extrabold, paddingBottom: 14, color: c.text }}>Earnings</Text>
+      <ScreenTitle title="Earnings" onBack={() => navigation.goBack()} />
       <Text style={{ fontSize: 28, fontFamily: font.extrabold, color: c.green }}>{inr(data?.thisMonth ?? 0)}</Text>
       <Text style={{ fontSize: 12, color: c.muted, marginBottom: 20, fontFamily: font.regular }}>This month</Text>
       {barAmounts.length > 0 && (
@@ -680,20 +648,30 @@ export function OwnerProfile({ navigation }: NativeStackScreenProps<OwnerStackPa
   );
 }
 
+const MAX_BAND_COUNT = bandsNeededForDepth(MAX_DEPTH_FT);
+
 export function EditProfile({ navigation }: NativeStackScreenProps<OwnerStackParams, "EditProfile">) {
   const [profile, setProfile] = useState<CompanyProfile | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  const [rateCardInputs, setRateCardInputs] = useState<(number | undefined)[]>(Array(MAX_BAND_COUNT).fill(undefined));
+  const [availableDates, setAvailableDates] = useState<Date[]>([]);
 
   useFocusEffect(
     useCallback(() => {
-      api.profile().then(setProfile).catch(console.error);
+      api.profile().then((p) => {
+        setProfile(p);
+        setRateCardInputs(padRateCard(p.rateCard, MAX_BAND_COUNT));
+        setAvailableDates(p.availableDates.map((d) => new Date(d)));
+      }).catch(console.error);
     }, [])
   );
 
   const {
     control,
     handleSubmit,
+    setValue,
+    watch,
     formState: { errors },
   } = useForm<EditProfileForm>({
     resolver: zodResolver(editProfileSchema),
@@ -702,14 +680,18 @@ export function EditProfile({ navigation }: NativeStackScreenProps<OwnerStackPar
           name: profile.name,
           ownerName: profile.ownerName,
           address: profile.address,
+          state: profile.state,
           city: profile.city,
           experienceYears: String(profile.experienceYears),
           registrationNumber: profile.registrationNumber,
-          serviceAreas: profile.serviceAreas.join(", "),
+          serviceAreas: profile.serviceAreas,
           machineType: profile.machineType,
+          casingRate: String(profile.casingRate),
+          estimatedCompletion: profile.estimatedCompletion,
         }
       : undefined,
   });
+  const selectedState = watch("state");
 
   if (!profile) return <LoadingScreen />;
 
@@ -721,11 +703,16 @@ export function EditProfile({ navigation }: NativeStackScreenProps<OwnerStackPar
         name: data.name,
         ownerName: data.ownerName,
         address: data.address,
+        state: data.state,
         city: data.city,
         experienceYears: Number(data.experienceYears),
         registrationNumber: data.registrationNumber,
-        serviceAreas: data.serviceAreas.split(",").map((s) => s.trim()).filter(Boolean),
+        serviceAreas: data.serviceAreas,
         machineType: data.machineType,
+        rateCard: trimRateCard(rateCardInputs),
+        casingRate: Number(data.casingRate),
+        estimatedCompletion: data.estimatedCompletion,
+        availableDates,
       });
       showToast("Profile saved");
       navigation.goBack();
@@ -763,8 +750,37 @@ export function EditProfile({ navigation }: NativeStackScreenProps<OwnerStackPar
           />
         )}
       />
-      <FieldLabel>CITY</FieldLabel>
-      <Controller control={control} name="city" render={({ field: { value, onChange } }) => <Field value={value} onChangeText={onChange} />} />
+      <FieldLabel>STATE</FieldLabel>
+      <Controller
+        control={control}
+        name="state"
+        render={({ field: { value, onChange } }) => (
+          <SelectField
+            value={value}
+            onChange={(v) => {
+              onChange(v);
+              setValue("city", "");
+            }}
+            options={INDIA_STATES}
+            placeholder="Select State"
+          />
+        )}
+      />
+      <ErrorText>{errors.state?.message}</ErrorText>
+      <FieldLabel>DISTRICT</FieldLabel>
+      <Controller
+        control={control}
+        name="city"
+        render={({ field: { value, onChange } }) => (
+          <SelectField
+            value={value}
+            onChange={onChange}
+            options={DISTRICTS_BY_STATE[selectedState] ?? []}
+            placeholder="Select District"
+            disabledMessage="Select a state first"
+          />
+        )}
+      />
       <ErrorText>{errors.city?.message}</ErrorText>
       <FieldLabel>EXPERIENCE (YEARS)</FieldLabel>
       <Controller
@@ -779,21 +795,60 @@ export function EditProfile({ navigation }: NativeStackScreenProps<OwnerStackPar
         name="registrationNumber"
         render={({ field: { value, onChange } }) => <Field value={value} onChangeText={onChange} />}
       />
-      <FieldLabel>SERVICE AREAS (COMMA-SEPARATED)</FieldLabel>
+      <FieldLabel>SERVICE AREAS (DISTRICTS YOU OPERATE IN)</FieldLabel>
       <Controller
         control={control}
         name="serviceAreas"
-        render={({ field: { value, onChange } }) => <Field value={value} onChangeText={onChange} />}
+        render={({ field: { value, onChange } }) => (
+          <MultiSelectField values={value} onChange={onChange} options={ALL_DISTRICTS} placeholder="Select service areas" />
+        )}
       />
+      <ErrorText>{errors.serviceAreas?.message}</ErrorText>
       <FieldLabel>MACHINE TYPE</FieldLabel>
       <Controller
         control={control}
         name="machineType"
-        render={({ field: { value, onChange } }) => <Field value={value} onChangeText={onChange} style={{ marginBottom: 22 }} />}
+        render={({ field: { value, onChange } }) => <Field value={value} onChangeText={onChange} />}
       />
       <ErrorText>{errors.machineType?.message}</ErrorText>
+      <FieldLabel>ESTIMATED COMPLETION (SHOWN ON EVERY QUOTE)</FieldLabel>
+      <Controller
+        control={control}
+        name="estimatedCompletion"
+        render={({ field: { value, onChange } }) => <Field value={value} onChangeText={onChange} placeholder="e.g. 3–4 days" />}
+      />
+      <ErrorText>{errors.estimatedCompletion?.message}</ErrorText>
+
+      <Text style={{ fontSize: 15, fontFamily: font.extrabold, color: c.text, marginTop: 8, marginBottom: 4 }}>
+        Pricing (₹ per ft by depth)
+      </Text>
+      <Text style={{ fontSize: 12, color: c.muted, marginBottom: 14, fontFamily: font.regular }}>
+        Fill in rates from the top for however deep you drill — leave the rest blank. Quotes are generated
+        automatically for matching, available leads using these rates — no manual submission needed.
+      </Text>
+      <RateCardField values={rateCardInputs} onChange={setRateCardInputs} bandCount={MAX_BAND_COUNT} />
+
+      <FieldLabel>MACHINE &amp; CASING CHARGE (₹, FLAT)</FieldLabel>
+      <Controller
+        control={control}
+        name="casingRate"
+        render={({ field: { value, onChange } }) => (
+          <Field value={value} onChangeText={onChange} keyboardType="number-pad" placeholder="e.g. 11500" />
+        )}
+      />
+      <ErrorText>{errors.casingRate?.message}</ErrorText>
+
+      <Text style={{ fontSize: 15, fontFamily: font.extrabold, color: c.text, marginTop: 8, marginBottom: 4 }}>
+        Available Dates
+      </Text>
+      <Text style={{ fontSize: 12, color: c.muted, marginBottom: 14, fontFamily: font.regular }}>
+        Mark the dates you can take on a new job. Requests are only auto-matched to you on dates you've
+        marked available.
+      </Text>
+      <CalendarField mode="multi" value={availableDates} onChange={setAvailableDates} placeholder="Select available dates" />
+
       <ErrorText>{error}</ErrorText>
-      <PrimaryButton title="Save Profile" onPress={handleSubmit(save)} busy={busy} />
+      <PrimaryButton title="Save Profile" onPress={handleSubmit(save)} busy={busy} style={{ marginTop: 8 }} />
     </ScrollView>
   );
 }

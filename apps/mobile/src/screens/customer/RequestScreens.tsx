@@ -9,7 +9,11 @@ import * as Location from "expo-location";
 import { api, RequestRow, setCustomerToken } from "../../api";
 import { c, font } from "../../theme";
 import { Card, Field, FieldLabel, PrimaryButton, ErrorText, ScreenTitle } from "../../components/ui";
+import { SelectField } from "../../components/Picker";
+import { CalendarField } from "../../components/CalendarField";
 import { SelectLocationMap } from "../../components/SelectLocationMap";
+import { DISTRICTS_BY_STATE, INDIA_STATES } from "../../data/indiaLocations";
+import { MAX_DEPTH_FT } from "../../utils/pricing";
 import type { CustomerStackParams } from "../../navigation";
 
 const LAND_TYPES = ["Agriculture", "Residential", "Commercial"] as const;
@@ -23,7 +27,9 @@ const newRequestSchema = z.object({
   depth: z
     .string()
     .min(1, "Enter the expected depth")
-    .refine((v) => Number(v) > 0, "Enter a valid depth in feet"),
+    .refine((v) => Number(v) > 0, "Enter a valid depth in feet")
+    .refine((v) => Number(v) <= MAX_DEPTH_FT, `Max depth is ${MAX_DEPTH_FT} ft`),
+  preferredDate: z.date({ required_error: "Select the date you need this done by" }),
 });
 type NewRequestForm = z.infer<typeof newRequestSchema>;
 
@@ -140,11 +146,22 @@ export function NewRequest({ navigation }: NativeStackScreenProps<CustomerStackP
   const {
     control,
     handleSubmit,
+    setValue,
+    watch,
     formState: { errors },
   } = useForm<NewRequestForm>({
     resolver: zodResolver(newRequestSchema),
-    defaultValues: { country: "India", state: "", district: "", mandal: "", landType: "Agriculture", depth: "" },
+    defaultValues: {
+      country: "India",
+      state: "",
+      district: "",
+      mandal: "",
+      landType: "Agriculture",
+      depth: "",
+      preferredDate: undefined as unknown as Date,
+    },
   });
+  const selectedState = watch("state");
 
   const onSubmit = (data: NewRequestForm) => {
     navigation.navigate("SelectLocation", {
@@ -154,6 +171,7 @@ export function NewRequest({ navigation }: NativeStackScreenProps<CustomerStackP
       mandal: data.mandal.trim(),
       landType: data.landType,
       depthFt: Number(data.depth),
+      preferredDate: data.preferredDate.toISOString(),
     });
   };
 
@@ -171,14 +189,32 @@ export function NewRequest({ navigation }: NativeStackScreenProps<CustomerStackP
       <Controller
         control={control}
         name="state"
-        render={({ field: { value, onChange } }) => <Field value={value} onChangeText={onChange} placeholder="e.g. Telangana" />}
+        render={({ field: { value, onChange } }) => (
+          <SelectField
+            value={value}
+            onChange={(v) => {
+              onChange(v);
+              setValue("district", "");
+            }}
+            options={INDIA_STATES}
+            placeholder="Select State"
+          />
+        )}
       />
       <ErrorText>{errors.state?.message}</ErrorText>
       <FieldLabel>DISTRICT</FieldLabel>
       <Controller
         control={control}
         name="district"
-        render={({ field: { value, onChange } }) => <Field value={value} onChangeText={onChange} placeholder="e.g. Sangareddy" />}
+        render={({ field: { value, onChange } }) => (
+          <SelectField
+            value={value}
+            onChange={onChange}
+            options={DISTRICTS_BY_STATE[selectedState] ?? []}
+            placeholder="Select District"
+            disabledMessage="Select a state first"
+          />
+        )}
       />
       <ErrorText>{errors.district?.message}</ErrorText>
       <FieldLabel>MANDAL / AREA</FieldLabel>
@@ -216,7 +252,7 @@ export function NewRequest({ navigation }: NativeStackScreenProps<CustomerStackP
           </View>
         )}
       />
-      <FieldLabel>EXPECTED DEPTH (FT)</FieldLabel>
+      <FieldLabel>EXPECTED DEPTH (FT, MAX {MAX_DEPTH_FT})</FieldLabel>
       <Controller
         control={control}
         name="depth"
@@ -231,13 +267,25 @@ export function NewRequest({ navigation }: NativeStackScreenProps<CustomerStackP
         )}
       />
       <ErrorText>{errors.depth?.message}</ErrorText>
+      <FieldLabel>DATE REQUIRED BY</FieldLabel>
+      <Controller
+        control={control}
+        name="preferredDate"
+        render={({ field: { value, onChange } }) => (
+          <CalendarField mode="single" value={value ?? null} onChange={onChange} placeholder="Select a date" />
+        )}
+      />
+      <ErrorText>{errors.preferredDate?.message}</ErrorText>
+      <Text style={{ fontSize: 11, color: c.mutedLight, marginTop: -6, marginBottom: 8, fontFamily: font.regular }}>
+        Only companies available on this date will be sent your request.
+      </Text>
       <PrimaryButton title="Next: Select Location" onPress={handleSubmit(onSubmit)} style={{ marginTop: 14 }} />
     </ScrollView>
   );
 }
 
 export function SelectLocation({ navigation, route }: NativeStackScreenProps<CustomerStackParams, "SelectLocation">) {
-  const { country, state, district, mandal, landType, depthFt } = route.params;
+  const { country, state, district, mandal, landType, depthFt, preferredDate } = route.params;
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
   const [locating, setLocating] = useState(true);
@@ -277,6 +325,7 @@ export function SelectLocation({ navigation, route }: NativeStackScreenProps<Cus
         mandal,
         landType,
         depthFt,
+        preferredDate,
         lat: coords.lat,
         lng: coords.lng,
       });
@@ -322,6 +371,9 @@ export function SelectLocation({ navigation, route }: NativeStackScreenProps<Cus
         <Text style={{ fontSize: 12, color: c.muted, marginTop: 4, fontFamily: font.regular }}>
           {state}, {country}
           {coords ? ` · Lat ${coords.lat.toFixed(5)}, Long ${coords.lng.toFixed(5)}` : ""}
+        </Text>
+        <Text style={{ fontSize: 12, color: c.muted, marginTop: 4, fontFamily: font.regular }}>
+          Required by {new Date(preferredDate).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" })}
         </Text>
       </Card>
       <ErrorText>{error}</ErrorText>

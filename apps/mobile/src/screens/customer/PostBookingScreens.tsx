@@ -37,7 +37,7 @@ export function Tracking({ navigation, route }: NativeStackScreenProps<CustomerS
 
   return (
     <ScrollView style={{ flex: 1, backgroundColor: c.bg }} contentContainerStyle={{ padding: 20 }}>
-      <Text style={{ fontSize: 20, fontFamily: font.extrabold, paddingBottom: 18, color: c.text }}>Job Tracking</Text>
+      <ScreenTitle title="Job Tracking" onBack={() => navigation.goBack()} />
       <View style={{ gap: 18 }}>
         {rows.map((r) => (
           <View key={r.label} style={{ flexDirection: "row", gap: 12 }}>
@@ -201,9 +201,11 @@ export function Review({ navigation, route }: NativeStackScreenProps<CustomerSta
   };
 
   return (
-    <ScrollView style={{ flex: 1, backgroundColor: c.bg }} contentContainerStyle={{ padding: 24, paddingTop: 40, alignItems: "center" }}>
-      <Text style={{ fontSize: 20, fontFamily: font.extrabold, color: c.text }}>Rate &amp; Review</Text>
-      <Text style={{ fontSize: 13, color: c.muted, marginTop: 6, fontFamily: font.regular }}>
+    <ScrollView style={{ flex: 1, backgroundColor: c.bg }} contentContainerStyle={{ padding: 20, paddingTop: 24, alignItems: "center" }}>
+      <View style={{ alignSelf: "stretch" }}>
+        <ScreenTitle title="Rate & Review" onBack={() => navigation.goBack()} />
+      </View>
+      <Text style={{ fontSize: 13, color: c.muted, marginTop: -8, fontFamily: font.regular }}>
         How was your experience with {companyName}?
       </Text>
       <View style={{ flexDirection: "row", gap: 8, marginTop: 22 }}>
@@ -277,12 +279,10 @@ export function MyBookings({ navigation }: NativeStackScreenProps<CustomerStackP
   );
 
   return (
-    <ScrollView style={{ flex: 1, backgroundColor: c.bg }} contentContainerStyle={{ paddingVertical: 16 }}>
-      <Text style={{ fontSize: 20, fontFamily: font.extrabold, paddingHorizontal: 16, paddingBottom: 16, color: c.text }}>
-        My Bookings
-      </Text>
+    <ScrollView style={{ flex: 1, backgroundColor: c.bg }} contentContainerStyle={{ padding: 20 }}>
+      <ScreenTitle title="My Bookings" onBack={() => navigation.goBack()} />
       {bookings.length === 0 && (
-        <Text style={{ paddingHorizontal: 16, fontSize: 13, color: c.muted, fontFamily: font.regular }}>
+        <Text style={{ fontSize: 13, color: c.muted, fontFamily: font.regular }}>
           No bookings yet.
         </Text>
       )}
@@ -293,7 +293,6 @@ export function MyBookings({ navigation }: NativeStackScreenProps<CustomerStackP
               flexDirection: "row",
               justifyContent: "space-between",
               alignItems: "center",
-              marginHorizontal: 16,
               marginBottom: 12,
             }}
           >

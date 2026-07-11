@@ -47,7 +47,10 @@ async function req<T>(path: string, init?: RequestInit, role?: "customer" | "own
 export interface RankedQuote {
   id: string;
   companyName: string;
-  pricePerFt: number;
+  bandRates: number[];
+  totalPrice: number;
+  depthFt: number;
+  casingRate: number;
   machineType: string;
   estimatedCompletion: string;
   rating: number;
@@ -73,7 +76,8 @@ export interface BookingDetail {
   id: string;
   code: string;
   status: string;
-  pricePerFt: number;
+  bandRates: number[];
+  totalPrice: number;
   bookingFee: number;
   company: {
     id: string;
@@ -108,13 +112,15 @@ export interface Lead {
   landType: string;
   depthFt: number;
   preferredDate: string;
+  totalPrice: number;
 }
 
 export interface OwnerJob {
   id: string;
   code: string;
   status: string;
-  pricePerFt: number;
+  bandRates: number[];
+  totalPrice: number;
   district: string;
   mandal: string;
   depthFt: number;
@@ -136,6 +142,10 @@ export interface CompanyProfile {
   registrationNumber: string;
   serviceAreas: string[];
   machineType: string;
+  rateCard: number[];
+  casingRate: number;
+  estimatedCompletion: string;
+  availableDates: string[];
   status: "PENDING" | "VERIFIED";
   vehiclePhotos: { slot: string; url: string }[];
   borewellPhotos: { id: string; url: string }[];
@@ -195,8 +205,6 @@ export const api = {
 
   // owner flow
   leads: () => req<Lead[]>("/owner/leads", {}, "owner"),
-  submitQuote: (requestId: string, data: object) =>
-    req(`/owner/leads/${requestId}/quote`, { method: "POST", body: JSON.stringify(data) }, "owner"),
   jobs: () => req<OwnerJob[]>("/owner/jobs", {}, "owner"),
   advanceMilestone: (jobId: string) =>
     req<{ ok: true; completed: string; jobDone: boolean }>(`/owner/jobs/${jobId}/milestones/advance`, { method: "POST" }, "owner"),

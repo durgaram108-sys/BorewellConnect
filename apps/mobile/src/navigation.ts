@@ -12,10 +12,18 @@ export type CustomerStackParams = {
   CustomerHome: undefined;
   CompleteProfile: undefined;
   NewRequest: undefined;
-  SelectLocation: { country: string; state: string; district: string; mandal: string; landType: string; depthFt: number };
+  SelectLocation: {
+    country: string;
+    state: string;
+    district: string;
+    mandal: string;
+    landType: string;
+    depthFt: number;
+    preferredDate: string;
+  };
   Quotations: { requestId: string; code: string };
   QuoteDetail: { requestId: string; quote: RankedQuote };
-  BookingConfirm: { bookingId: string; code: string; companyName: string };
+  BookingConfirm: { bookingId: string; code: string; companyName: string; totalPrice: number };
   Payment: { bookingId: string };
   Tracking: { bookingId: string };
   JobDetails: { bookingId: string };
@@ -30,8 +38,7 @@ export type OwnerStackParams = {
   OwnerOtp: { phone: string };
   OwnerDashboard: undefined;
   NewLeads: undefined;
-  SubmitQuote: { requestId: string; code: string };
-  ActiveJobs: { justSubmitted?: boolean } | undefined;
+  ActiveJobs: undefined;
   JobUpdate: { jobId: string };
   Earnings: undefined;
   OwnerProfile: undefined;

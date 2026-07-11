@@ -8,6 +8,7 @@ import { api, RankedQuote } from "../../api";
 import { showToast } from "../../components/Toast";
 import { c, font, inr } from "../../theme";
 import { Card, PrimaryButton, ErrorText, ScreenTitle } from "../../components/ui";
+import { bandLabel } from "../../utils/pricing";
 import type { CustomerStackParams } from "../../navigation";
 
 export function Quotations({ navigation, route }: NativeStackScreenProps<CustomerStackParams, "Quotations">) {
@@ -22,11 +23,8 @@ export function Quotations({ navigation, route }: NativeStackScreenProps<Custome
 
   return (
     <ScrollView style={{ flex: 1, backgroundColor: c.bg }} contentContainerStyle={{ paddingVertical: 16 }}>
-      <View style={{ paddingHorizontal: 16, paddingBottom: 4, flexDirection: "row", alignItems: "center", gap: 10 }}>
-        <Pressable onPress={() => navigation.goBack()} hitSlop={10}>
-          <Text style={{ fontSize: 20, color: c.text }}>←</Text>
-        </Pressable>
-        <Text style={{ fontSize: 20, fontFamily: font.extrabold, color: c.text }}>Quotations ({quotes.length})</Text>
+      <View style={{ paddingHorizontal: 16 }}>
+        <ScreenTitle title={`Quotations (${quotes.length})`} onBack={() => navigation.goBack()} />
       </View>
       <Text style={{ fontSize: 12, color: c.muted, paddingHorizontal: 16, paddingBottom: 16, fontFamily: font.regular }}>
         Ranked by price, rating &amp; distance
@@ -82,7 +80,7 @@ export function Quotations({ navigation, route }: NativeStackScreenProps<Custome
                 </View>
               )}
             </View>
-            <Text style={{ fontFamily: font.extrabold, color: c.green, fontSize: 15 }}>₹{q.pricePerFt}/ft</Text>
+            <Text style={{ fontFamily: font.extrabold, color: c.green, fontSize: 15 }}>{inr(q.totalPrice)}</Text>
           </Card>
         </Pressable>
       ))}
@@ -106,7 +104,8 @@ export function QuoteDetail({ navigation, route }: NativeStackScreenProps<Custom
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
 
-  const pricePct = Math.max(10, 100 - (quote.pricePerFt - 170) * 2);
+  const effectiveRate = quote.totalPrice / quote.depthFt;
+  const pricePct = Math.max(10, 100 - (effectiveRate - 170) * 2);
   const ratingPct = Math.round((quote.rating / 5) * 100);
   const distPct = Math.max(10, 100 - quote.distanceKm * 8);
 
@@ -115,7 +114,12 @@ export function QuoteDetail({ navigation, route }: NativeStackScreenProps<Custom
     setError("");
     try {
       const booking = await api.book(quote.id);
-      navigation.navigate("BookingConfirm", { bookingId: booking.id, code: booking.code, companyName: quote.companyName });
+      navigation.navigate("BookingConfirm", {
+        bookingId: booking.id,
+        code: booking.code,
+        companyName: quote.companyName,
+        totalPrice: quote.totalPrice,
+      });
     } catch (e) {
       setError(e instanceof Error ? e.message : "Booking failed");
     } finally {
@@ -131,8 +135,34 @@ export function QuoteDetail({ navigation, route }: NativeStackScreenProps<Custom
         {quote.yearsExperience}+ years experience · {quote.machineType} machine
       </Text>
       <Text style={{ fontSize: 26, fontFamily: font.extrabold, color: c.green, marginTop: 14 }}>
-        ₹{quote.pricePerFt}/ft
+        {inr(quote.totalPrice)}
       </Text>
+      <Text style={{ fontSize: 12, color: c.mutedLight, marginTop: 2, fontFamily: font.regular }}>
+        For {quote.depthFt} ft (avg ₹{Math.round(effectiveRate)}/ft)
+      </Text>
+
+      <Card style={{ marginTop: 16, padding: 14 }}>
+        <Text style={{ fontSize: 12, fontFamily: font.bold, color: c.muted, marginBottom: 8 }}>RATE BREAKDOWN</Text>
+        {quote.bandRates.map((rate, i) => (
+          <View
+            key={i}
+            style={{
+              flexDirection: "row",
+              justifyContent: "space-between",
+              paddingVertical: 6,
+              borderBottomWidth: i === quote.bandRates.length - 1 ? 0 : 1,
+              borderBottomColor: c.trackBg,
+            }}
+          >
+            <Text style={{ fontSize: 13, color: c.text, fontFamily: font.regular }}>{bandLabel(i)}</Text>
+            <Text style={{ fontSize: 13, color: c.text, fontFamily: font.semibold }}>₹{rate}/ft</Text>
+          </View>
+        ))}
+        <View style={{ flexDirection: "row", justifyContent: "space-between", paddingTop: 10 }}>
+          <Text style={{ fontSize: 13, color: c.muted, fontFamily: font.regular }}>Machine &amp; Casing Charges</Text>
+          <Text style={{ fontSize: 13, color: c.muted, fontFamily: font.semibold }}>{inr(quote.casingRate)}</Text>
+        </View>
+      </Card>
 
       <View style={{ marginTop: 8 }}>
         <ScoreBar label="Price competitiveness" pct={pricePct} color={c.green} />
@@ -147,10 +177,13 @@ export function QuoteDetail({ navigation, route }: NativeStackScreenProps<Custom
 }
 
 export function BookingConfirm({ navigation, route }: NativeStackScreenProps<CustomerStackParams, "BookingConfirm">) {
-  const { bookingId, code, companyName } = route.params;
+  const { bookingId, code, companyName, totalPrice } = route.params;
 
   return (
-    <ScrollView style={{ flex: 1, backgroundColor: c.bg }} contentContainerStyle={{ padding: 28, paddingTop: 60, alignItems: "center" }}>
+    <ScrollView style={{ flex: 1, backgroundColor: c.bg }} contentContainerStyle={{ padding: 20, paddingTop: 24, alignItems: "center" }}>
+      <View style={{ alignSelf: "stretch" }}>
+        <ScreenTitle title="Booking Confirmed" onBack={() => navigation.goBack()} />
+      </View>
       <Svg width={64} height={64} viewBox="0 0 64 64">
         <Circle cx={32} cy={32} r={30} fill={c.green} />
         <Path d="M20 33l8 8 16-18" stroke="#fff" strokeWidth={4} fill="none" strokeLinecap="round" strokeLinejoin="round" />
@@ -162,6 +195,8 @@ export function BookingConfirm({ navigation, route }: NativeStackScreenProps<Cus
       <Card style={{ marginTop: 26, alignSelf: "stretch", alignItems: "center", padding: 16 }}>
         <Text style={{ fontSize: 11, color: c.mutedLight, fontFamily: font.regular }}>BOOKING ID</Text>
         <Text style={{ fontSize: 18, fontFamily: font.extrabold, marginTop: 4, color: c.text }}>{code}</Text>
+        <Text style={{ fontSize: 11, color: c.mutedLight, marginTop: 14, fontFamily: font.regular }}>AGREED TOTAL</Text>
+        <Text style={{ fontSize: 18, fontFamily: font.extrabold, marginTop: 4, color: c.green }}>{inr(totalPrice)}</Text>
       </Card>
       <Text style={{ fontSize: 12, color: c.mutedLight, marginTop: 16, fontFamily: font.regular }}>
         Company contact details will be shared after payment
