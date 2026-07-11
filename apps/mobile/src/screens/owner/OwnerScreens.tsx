@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { Image, Pressable, RefreshControl, ScrollView, Text, TextInput, View } from "react-native";
 import { NativeStackScreenProps } from "@react-navigation/native-stack";
 import { Controller, useForm } from "react-hook-form";
@@ -7,7 +7,7 @@ import { z } from "zod";
 import * as ImagePicker from "expo-image-picker";
 import { Feather } from "@expo/vector-icons";
 import { api, setOwnerToken } from "../../api";
-import { c, font, inr, statusColor, statusLabel } from "../../theme";
+import { c, font, inr, localeFor, statusColor, statusLabel } from "../../theme";
 import {
   Card,
   Field,
@@ -21,30 +21,34 @@ import {
 import { MultiSelectField, SelectField } from "../../components/Picker";
 import { RateCardField } from "../../components/RateCardField";
 import { CalendarField } from "../../components/CalendarField";
+import { LanguagePicker } from "../../components/LanguagePicker";
 import { showToast } from "../../components/Toast";
 import { ALL_DISTRICTS, DISTRICTS_BY_STATE, INDIA_STATES } from "../../data/indiaLocations";
 import { bandsNeededForDepth, MAX_DEPTH_FT } from "../../utils/pricing";
 import { useFetch } from "../../hooks/useFetch";
+import { useTranslation } from "../../i18n/LanguageContext";
 import type { OwnerStackParams } from "../../navigation";
 
-const editProfileSchema = z.object({
-  name: z.string().min(1, "Enter company name"),
-  ownerName: z.string().min(1, "Enter owner name"),
-  address: z.string().optional(),
-  state: z.string().min(1, "Select your state"),
-  city: z.string().min(1, "Select your district"),
-  experienceYears: z.string().refine((v) => v.trim() !== "" && !isNaN(Number(v)) && Number(v) >= 0, "Enter valid years"),
-  registrationNumber: z.string().optional(),
-  serviceAreas: z.array(z.string()).min(1, "Select at least one service area"),
-  machineType: z.string().min(1, "Enter machine type"),
-  maxDepthFt: z
-    .string()
-    .refine((v) => v.trim() !== "" && !isNaN(Number(v)) && Number(v) > 0, "Enter your maximum drilling depth")
-    .refine((v) => Number(v) <= MAX_DEPTH_FT, `Max depth is ${MAX_DEPTH_FT} ft`),
-  casingRate: z.string().refine((v) => v.trim() !== "" && !isNaN(Number(v)) && Number(v) > 0, "Enter a valid amount"),
-  estimatedCompletion: z.string().min(1, "Enter an estimated completion time"),
-});
-type EditProfileForm = z.infer<typeof editProfileSchema>;
+function makeEditProfileSchema(t: (key: string, vars?: Record<string, string | number>) => string) {
+  return z.object({
+    name: z.string().min(1, t("editProfile.companyNameRequired")),
+    ownerName: z.string().min(1, t("editProfile.ownerNameRequired")),
+    address: z.string().optional(),
+    state: z.string().min(1, t("editProfile.stateRequired")),
+    city: z.string().min(1, t("editProfile.districtRequired")),
+    experienceYears: z.string().refine((v) => v.trim() !== "" && !isNaN(Number(v)) && Number(v) >= 0, t("editProfile.experienceYearsInvalid")),
+    registrationNumber: z.string().optional(),
+    serviceAreas: z.array(z.string()).min(1, t("editProfile.serviceAreasRequired")),
+    machineType: z.string().min(1, t("editProfile.machineTypeRequired")),
+    maxDepthFt: z
+      .string()
+      .refine((v) => v.trim() !== "" && !isNaN(Number(v)) && Number(v) > 0, t("editProfile.maxDepthRequired"))
+      .refine((v) => Number(v) <= MAX_DEPTH_FT, t("editProfile.maxDepthMax", { max: MAX_DEPTH_FT })),
+    casingRate: z.string().refine((v) => v.trim() !== "" && !isNaN(Number(v)) && Number(v) > 0, t("editProfile.casingRateInvalid")),
+    estimatedCompletion: z.string().min(1, t("editProfile.estimatedCompletionRequired")),
+  });
+}
+type EditProfileForm = z.infer<ReturnType<typeof makeEditProfileSchema>>;
 
 /** Trims a sparse top-down rate list at the first gap — a driller who only fills bands 1-4 has a 4-entry rate card. */
 function trimRateCard(inputs: (number | undefined)[]): number[] {
@@ -64,7 +68,14 @@ function padRateCard(rateCard: number[], length: number): (number | undefined)[]
   return padded;
 }
 
+/** Milestone labels come from the server (packages/shared MILESTONES) — translate the known fixed set. */
+function useMilestoneLabel() {
+  const { t } = useTranslation();
+  return (label: string) => t(`milestones.${label}`) || label;
+}
+
 export function OwnerLogin({ navigation }: NativeStackScreenProps<OwnerStackParams, "OwnerLogin">) {
+  const { t } = useTranslation();
   const [phone, setPhone] = useState("");
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
@@ -76,7 +87,7 @@ export function OwnerLogin({ navigation }: NativeStackScreenProps<OwnerStackPara
       await api.ownerRequestOtp(phone);
       navigation.navigate("OwnerOtp", { phone });
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Failed to send OTP");
+      setError(e instanceof Error ? e.message : t("ownerLogin.failedToSend"));
     } finally {
       setBusy(false);
     }
@@ -89,7 +100,7 @@ export function OwnerLogin({ navigation }: NativeStackScreenProps<OwnerStackPara
         CONNECT
       </Text>
       <Text style={{ fontSize: 13, fontFamily: font.bold, color: c.orange, marginTop: 16, letterSpacing: 0.5 }}>
-        PARTNER LOGIN
+        {t("ownerLogin.partnerLogin")}
       </Text>
       <Text
         style={{
@@ -101,11 +112,11 @@ export function OwnerLogin({ navigation }: NativeStackScreenProps<OwnerStackPara
           fontFamily: font.regular,
         }}
       >
-        Manage leads, quotes &amp; jobs as a verified borewell company
+        {t("ownerLogin.tagline")}
       </Text>
 
       <View style={{ alignSelf: "stretch", marginTop: 52 }}>
-        <Text style={{ fontSize: 13, fontFamily: font.bold, color: c.muted, marginBottom: 6 }}>Mobile Number</Text>
+        <Text style={{ fontSize: 13, fontFamily: font.bold, color: c.muted, marginBottom: 6 }}>{t("ownerLogin.mobileNumber")}</Text>
         <View
           style={{
             flexDirection: "row",
@@ -126,21 +137,26 @@ export function OwnerLogin({ navigation }: NativeStackScreenProps<OwnerStackPara
             keyboardType="phone-pad"
             maxLength={10}
             style={{ flex: 1, fontSize: 16, fontFamily: font.regular, color: c.text }}
-            placeholder="Registered company mobile"
+            placeholder={t("ownerLogin.mobilePlaceholder")}
             placeholderTextColor={c.mutedLight}
           />
         </View>
         <ErrorText>{error}</ErrorText>
-        <PrimaryButton title="Send OTP" onPress={send} busy={busy} style={{ marginTop: 22 }} />
+        <PrimaryButton title={t("ownerLogin.sendOtp")} onPress={send} busy={busy} style={{ marginTop: 22 }} />
         <Text style={{ fontSize: 11, color: c.mutedLight, textAlign: "center", marginTop: 16, fontFamily: font.regular }}>
-          New company? <Text style={{ color: c.green, fontFamily: font.bold }}>Register here</Text>
+          {t("ownerLogin.registerPrompt")}
+          <Text style={{ color: c.green, fontFamily: font.bold }}>{t("ownerLogin.registerHere")}</Text>
         </Text>
+        <View style={{ alignItems: "center", marginTop: 20 }}>
+          <LanguagePicker />
+        </View>
       </View>
     </ScrollView>
   );
 }
 
 export function OwnerOtp({ navigation, route }: NativeStackScreenProps<OwnerStackParams, "OwnerOtp">) {
+  const { t } = useTranslation();
   const { phone } = route.params;
   const [code, setCode] = useState("");
   const [error, setError] = useState("");
@@ -158,7 +174,7 @@ export function OwnerOtp({ navigation, route }: NativeStackScreenProps<OwnerStac
         routes: isNew ? [{ name: "OwnerDashboard" }, { name: "EditProfile" }] : [{ name: "OwnerDashboard" }],
       });
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Verification failed");
+      setError(e instanceof Error ? e.message : t("ownerOtp.failed"));
     } finally {
       setBusy(false);
     }
@@ -166,9 +182,9 @@ export function OwnerOtp({ navigation, route }: NativeStackScreenProps<OwnerStac
 
   return (
     <ScrollView style={{ flex: 1, backgroundColor: c.bg }} contentContainerStyle={{ padding: 20, paddingTop: 24 }}>
-      <ScreenTitle title="Enter OTP" onBack={() => navigation.goBack()} />
+      <ScreenTitle title={t("ownerOtp.title")} onBack={() => navigation.goBack()} />
       <Text style={{ fontSize: 13, color: c.muted, fontFamily: font.regular }}>
-        We've sent a 6-digit code to +91 {phone}
+        {t("ownerOtp.sentTo", { phone })}
       </Text>
       <TextInput
         value={code}
@@ -190,15 +206,16 @@ export function OwnerOtp({ navigation, route }: NativeStackScreenProps<OwnerStac
         }}
       />
       <Text style={{ fontSize: 12, color: c.mutedLight, textAlign: "center", marginTop: 14, fontFamily: font.regular }}>
-        Resend OTP in 00:30
+        {t("ownerOtp.resend")}
       </Text>
       <ErrorText>{error}</ErrorText>
-      <PrimaryButton title="Verify OTP" onPress={verify} busy={busy} style={{ marginTop: 26 }} />
+      <PrimaryButton title={t("ownerOtp.verify")} onPress={verify} busy={busy} style={{ marginTop: 26 }} />
     </ScrollView>
   );
 }
 
 export function OwnerDashboard({ navigation }: NativeStackScreenProps<OwnerStackParams, "OwnerDashboard">) {
+  const { t } = useTranslation();
   const { data, loading, refreshing, refresh } = useFetch(
     () =>
       Promise.all([api.profile(), api.leads(), api.jobs(), api.earnings()]).then(([profile, leads, jobs, earnings]) => ({
@@ -250,36 +267,37 @@ export function OwnerDashboard({ navigation }: NativeStackScreenProps<OwnerStack
           <View style={{ flexDirection: "row", gap: 12, marginBottom: 18 }}>
             <Card style={{ flex: 1 }}>
               <Text style={{ fontSize: 22, fontFamily: font.extrabold, color: c.text }}>{leadCount}</Text>
-              <Text style={{ fontSize: 11, color: c.muted, marginTop: 2, fontFamily: font.regular }}>New Leads</Text>
+              <Text style={{ fontSize: 11, color: c.muted, marginTop: 2, fontFamily: font.regular }}>{t("ownerDashboard.newLeads")}</Text>
             </Card>
             <Pressable style={{ flex: 1 }} onPress={() => navigation.navigate("ActiveJobs")}>
               <Card>
                 <Text style={{ fontSize: 22, fontFamily: font.extrabold, color: c.text }}>{jobCount}</Text>
-                <Text style={{ fontSize: 11, color: c.muted, marginTop: 2, fontFamily: font.regular }}>Active Jobs</Text>
+                <Text style={{ fontSize: 11, color: c.muted, marginTop: 2, fontFamily: font.regular }}>{t("ownerDashboard.activeJobs")}</Text>
               </Card>
             </Pressable>
           </View>
 
           <Pressable onPress={() => navigation.navigate("Earnings")}>
             <Card style={{ marginBottom: 18 }}>
-              <Text style={{ fontSize: 11, color: c.muted, fontFamily: font.regular }}>EARNINGS THIS MONTH</Text>
+              <Text style={{ fontSize: 11, color: c.muted, fontFamily: font.regular }}>{t("ownerDashboard.earningsThisMonth")}</Text>
               <Text style={{ fontSize: 24, fontFamily: font.extrabold, color: c.green, marginTop: 4 }}>{inr(earnings)}</Text>
             </Card>
           </Pressable>
 
-          <PrimaryButton title="View New Leads" onPress={() => navigation.navigate("NewLeads")} />
+          <PrimaryButton title={t("ownerDashboard.viewNewLeads")} onPress={() => navigation.navigate("NewLeads")} />
         </>
       )}
     </ScrollView>
   );
 }
 
-const fmtDate = (iso: string) =>
-  new Date(iso).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" });
-
 export function NewLeads({ navigation }: NativeStackScreenProps<OwnerStackParams, "NewLeads">) {
+  const { t, language } = useTranslation();
   const { data, loading, refreshing, refresh } = useFetch(() => api.leads(), []);
   const leads = data ?? [];
+
+  const fmtDate = (iso: string) =>
+    new Date(iso).toLocaleDateString(localeFor(language), { day: "numeric", month: "short", year: "numeric" });
 
   return (
     <ScrollView
@@ -287,18 +305,16 @@ export function NewLeads({ navigation }: NativeStackScreenProps<OwnerStackParams
       contentContainerStyle={{ padding: 20 }}
       refreshControl={<RefreshControl refreshing={refreshing} onRefresh={refresh} />}
     >
-      <ScreenTitle title="Matched Requests" onBack={() => navigation.goBack()} />
+      <ScreenTitle title={t("newLeads.title")} onBack={() => navigation.goBack()} />
       <Text style={{ fontSize: 12, color: c.mutedLight, marginTop: -8, marginBottom: 16, fontFamily: font.regular }}>
-        A quote is sent automatically using your saved rates — no action needed.
+        {t("newLeads.subtitle")}
       </Text>
       {loading ? (
         <SkeletonList />
       ) : (
         <>
           {leads.length === 0 && (
-            <Text style={{ fontSize: 13, color: c.muted, fontFamily: font.regular }}>
-              No matched requests yet — make sure your service areas, pricing, and available dates are up to date.
-            </Text>
+            <Text style={{ fontSize: 13, color: c.muted, fontFamily: font.regular }}>{t("newLeads.empty")}</Text>
           )}
           {leads.map((l) => (
             <Card key={l.id} style={{ padding: 16, marginBottom: 14 }}>
@@ -310,18 +326,18 @@ export function NewLeads({ navigation }: NativeStackScreenProps<OwnerStackParams
                 📍 {l.district}, {l.state}, {l.country}
               </Text>
               <Text style={{ fontSize: 13, color: c.muted, marginTop: 6, fontFamily: font.regular }}>
-                Land Type: {l.landType}
+                {t("newLeads.landType", { type: l.landType })}
               </Text>
               <Text style={{ fontSize: 13, color: c.muted, marginTop: 6, fontFamily: font.regular }}>
-                Expected Depth: {l.depthFt} ft
+                {t("newLeads.expectedDepth", { depth: l.depthFt })}
               </Text>
               <Text style={{ fontSize: 13, color: c.muted, marginTop: 6, fontFamily: font.regular }}>
-                Preferred Date: {fmtDate(l.preferredDate)}
+                {t("newLeads.preferredDate", { date: fmtDate(l.preferredDate) })}
               </Text>
             </Card>
           ))}
           <Text style={{ fontSize: 12, color: c.mutedLight, fontStyle: "italic", marginTop: 4, fontFamily: font.regular }}>
-            Customer contact details are shared only after you're selected.
+            {t("newLeads.contactNote")}
           </Text>
         </>
       )}
@@ -330,6 +346,7 @@ export function NewLeads({ navigation }: NativeStackScreenProps<OwnerStackParams
 }
 
 export function ActiveJobs({ navigation }: NativeStackScreenProps<OwnerStackParams, "ActiveJobs">) {
+  const { t } = useTranslation();
   const { data, loading, refreshing, refresh } = useFetch(() => api.jobs(), []);
   const jobs = data ?? [];
 
@@ -339,15 +356,13 @@ export function ActiveJobs({ navigation }: NativeStackScreenProps<OwnerStackPara
       contentContainerStyle={{ padding: 20 }}
       refreshControl={<RefreshControl refreshing={refreshing} onRefresh={refresh} />}
     >
-      <ScreenTitle title="Active Jobs" onBack={() => navigation.goBack()} />
+      <ScreenTitle title={t("activeJobs.title")} onBack={() => navigation.goBack()} />
       {loading ? (
         <SkeletonList />
       ) : (
         <>
           {jobs.length === 0 && (
-            <Text style={{ fontSize: 13, color: c.muted, fontFamily: font.regular }}>
-              No jobs yet — you'll see bookings here once a customer selects your quote.
-            </Text>
+            <Text style={{ fontSize: 13, color: c.muted, fontFamily: font.regular }}>{t("activeJobs.empty")}</Text>
           )}
           {jobs.map((j) => (
             <Pressable key={j.id} onPress={() => navigation.navigate("JobUpdate", { jobId: j.id })}>
@@ -373,6 +388,8 @@ export function ActiveJobs({ navigation }: NativeStackScreenProps<OwnerStackPara
 }
 
 export function JobUpdate({ navigation, route }: NativeStackScreenProps<OwnerStackParams, "JobUpdate">) {
+  const { t } = useTranslation();
+  const translateMilestone = useMilestoneLabel();
   const { jobId } = route.params;
   const [busy, setBusy] = useState(false);
   const { data: job, loading, refreshing, refresh } = useFetch(
@@ -383,7 +400,7 @@ export function JobUpdate({ navigation, route }: NativeStackScreenProps<OwnerSta
   if (loading || !job) {
     return (
       <ScrollView style={{ flex: 1, backgroundColor: c.bg }} contentContainerStyle={{ padding: 20 }}>
-        <ScreenTitle title="Job" onBack={() => navigation.goBack()} />
+        <ScreenTitle title={t("jobUpdate.loadingTitle")} onBack={() => navigation.goBack()} />
         <SkeletonDetail />
       </ScrollView>
     );
@@ -409,9 +426,9 @@ export function JobUpdate({ navigation, route }: NativeStackScreenProps<OwnerSta
       contentContainerStyle={{ padding: 20 }}
       refreshControl={<RefreshControl refreshing={refreshing} onRefresh={refresh} />}
     >
-      <ScreenTitle title={`Job — ${job.code}`} onBack={() => navigation.goBack()} />
+      <ScreenTitle title={t("jobUpdate.title", { code: job.code })} onBack={() => navigation.goBack()} />
       <Text style={{ fontSize: 13, color: c.muted, marginBottom: 18, fontFamily: font.regular }}>
-        {job.customerName ?? "Customer"} {job.customerPhone ? `· ${job.customerPhone}` : "· contact shared after payment"}
+        {job.customerName ?? t("jobUpdate.customer")} {job.customerPhone ? `· ${job.customerPhone}` : t("jobUpdate.contactSharedAfterPayment")}
       </Text>
       <View style={{ gap: 14, marginBottom: 22 }}>
         {job.milestones.map((m) => (
@@ -424,16 +441,17 @@ export function JobUpdate({ navigation, route }: NativeStackScreenProps<OwnerSta
                 backgroundColor: m.completedAt ? c.green : c.disabledDot,
               }}
             />
-            <Text style={{ fontSize: 14, fontFamily: font.semibold, color: c.text }}>{m.label}</Text>
+            <Text style={{ fontSize: 14, fontFamily: font.semibold, color: c.text }}>{translateMilestone(m.label)}</Text>
           </View>
         ))}
       </View>
-      {next && <PrimaryButton title={`Mark "${next.label}"`} onPress={advance} busy={busy} />}
+      {next && <PrimaryButton title={t("jobUpdate.markMilestone", { label: translateMilestone(next.label) })} onPress={advance} busy={busy} />}
     </ScrollView>
   );
 }
 
 export function Earnings({ navigation }: NativeStackScreenProps<OwnerStackParams, "Earnings">) {
+  const { t } = useTranslation();
   const { data, loading, refreshing, refresh } = useFetch(() => api.earnings(), []);
 
   // Bars reflect the most recent payouts (oldest → newest), scaled to the largest.
@@ -444,7 +462,7 @@ export function Earnings({ navigation }: NativeStackScreenProps<OwnerStackParams
   if (loading) {
     return (
       <ScrollView style={{ flex: 1, backgroundColor: c.bg }} contentContainerStyle={{ padding: 20 }}>
-        <ScreenTitle title="Earnings" onBack={() => navigation.goBack()} />
+        <ScreenTitle title={t("earnings.title")} onBack={() => navigation.goBack()} />
         <SkeletonDetail />
       </ScrollView>
     );
@@ -456,9 +474,9 @@ export function Earnings({ navigation }: NativeStackScreenProps<OwnerStackParams
       contentContainerStyle={{ padding: 20 }}
       refreshControl={<RefreshControl refreshing={refreshing} onRefresh={refresh} />}
     >
-      <ScreenTitle title="Earnings" onBack={() => navigation.goBack()} />
+      <ScreenTitle title={t("earnings.title")} onBack={() => navigation.goBack()} />
       <Text style={{ fontSize: 28, fontFamily: font.extrabold, color: c.green }}>{inr(data?.thisMonth ?? 0)}</Text>
-      <Text style={{ fontSize: 12, color: c.muted, marginBottom: 20, fontFamily: font.regular }}>This month</Text>
+      <Text style={{ fontSize: 12, color: c.muted, marginBottom: 20, fontFamily: font.regular }}>{t("earnings.thisMonth")}</Text>
       {barAmounts.length > 0 && (
         <View style={{ flexDirection: "row", alignItems: "flex-end", gap: 10, height: 100, marginBottom: 24 }}>
           {barAmounts.map((amount, i) => (
@@ -475,7 +493,7 @@ export function Earnings({ navigation }: NativeStackScreenProps<OwnerStackParams
           ))}
         </View>
       )}
-      <Text style={{ fontSize: 13, fontFamily: font.bold, marginBottom: 10, color: c.text }}>Recent Payouts</Text>
+      <Text style={{ fontSize: 13, fontFamily: font.bold, marginBottom: 10, color: c.text }}>{t("earnings.recentPayouts")}</Text>
       {(data?.recentPayouts ?? []).map((p) => (
         <View
           key={p.code}
@@ -492,19 +510,19 @@ export function Earnings({ navigation }: NativeStackScreenProps<OwnerStackParams
         </View>
       ))}
       {data && data.recentPayouts.length === 0 && (
-        <Text style={{ fontSize: 13, color: c.muted, fontFamily: font.regular }}>No payouts yet.</Text>
+        <Text style={{ fontSize: 13, color: c.muted, fontFamily: font.regular }}>{t("earnings.empty")}</Text>
       )}
     </ScrollView>
   );
 }
 
-const PHOTO_SLOTS = [
-  { slot: "vehicle-front", label: "Vehicle front" },
-  { slot: "drill-unit", label: "Drill unit" },
-  { slot: "registration", label: "Registration" },
-] as const;
-
 export function OwnerProfile({ navigation }: NativeStackScreenProps<OwnerStackParams, "OwnerProfile">) {
+  const { t } = useTranslation();
+  const PHOTO_SLOTS = [
+    { slot: "vehicle-front", label: t("ownerProfile.vehicleFront") },
+    { slot: "drill-unit", label: t("ownerProfile.drillUnit") },
+    { slot: "registration", label: t("ownerProfile.registration") },
+  ] as const;
   const { data: profile, loading, refreshing, refresh } = useFetch(() => api.profile(), []);
 
   const pick = async (slot: string) => {
@@ -517,7 +535,7 @@ export function OwnerProfile({ navigation }: NativeStackScreenProps<OwnerStackPa
     const dataUri = `data:image/jpeg;base64,${result.assets[0].base64}`;
     await api.uploadVehiclePhoto(slot, dataUri);
     refresh();
-    showToast("Photo updated");
+    showToast(t("ownerProfile.photoUpdated"));
   };
 
   const pickBorewellPhoto = async () => {
@@ -530,13 +548,13 @@ export function OwnerProfile({ navigation }: NativeStackScreenProps<OwnerStackPa
     const dataUri = `data:image/jpeg;base64,${result.assets[0].base64}`;
     await api.addBorewellPhoto(dataUri);
     refresh();
-    showToast("Photo added");
+    showToast(t("ownerProfile.photoAdded"));
   };
 
   const removeBorewellPhoto = async (id: string) => {
     await api.removeBorewellPhoto(id);
     refresh();
-    showToast("Photo removed");
+    showToast(t("ownerProfile.photoRemoved"));
   };
 
   const logout = async () => {
@@ -547,7 +565,7 @@ export function OwnerProfile({ navigation }: NativeStackScreenProps<OwnerStackPa
   if (loading || !profile) {
     return (
       <ScrollView style={{ flex: 1, backgroundColor: c.bg }} contentContainerStyle={{ padding: 20 }}>
-        <ScreenTitle title="Company Profile" onBack={() => navigation.goBack()} />
+        <ScreenTitle title={t("ownerProfile.title")} onBack={() => navigation.goBack()} />
         <SkeletonDetail />
       </ScrollView>
     );
@@ -559,7 +577,7 @@ export function OwnerProfile({ navigation }: NativeStackScreenProps<OwnerStackPa
       contentContainerStyle={{ padding: 20 }}
       refreshControl={<RefreshControl refreshing={refreshing} onRefresh={refresh} />}
     >
-      <ScreenTitle title="Company Profile" onBack={() => navigation.goBack()} />
+      <ScreenTitle title={t("ownerProfile.title")} onBack={() => navigation.goBack()} />
       <Card style={{ padding: 16, marginBottom: 16 }}>
         <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
           <Text style={{ fontFamily: font.extrabold, fontSize: 16, color: c.text }}>{profile.name}</Text>
@@ -583,7 +601,7 @@ export function OwnerProfile({ navigation }: NativeStackScreenProps<OwnerStackPa
           </View>
         </View>
         <Text style={{ fontSize: 13, color: c.muted, marginTop: 10, fontFamily: font.regular }}>
-          Owner: {profile.ownerName || "—"}
+          {t("ownerProfile.owner", { name: profile.ownerName || "—" })}
         </Text>
         <Text style={{ fontSize: 13, color: c.muted, marginTop: 6, fontFamily: font.regular }}>{profile.phone}</Text>
         {!!profile.address && (
@@ -593,13 +611,13 @@ export function OwnerProfile({ navigation }: NativeStackScreenProps<OwnerStackPa
           {profile.city}, {profile.state}
         </Text>
         <Text style={{ fontSize: 13, color: c.muted, marginTop: 6, fontFamily: font.regular }}>
-          Experience: {profile.experienceYears}+ years
+          {t("ownerProfile.experience", { years: profile.experienceYears })}
         </Text>
         <Text style={{ fontSize: 13, color: c.muted, marginTop: 6, fontFamily: font.regular }}>
-          Registration No: {profile.registrationNumber || "—"}
+          {t("ownerProfile.registrationNo", { no: profile.registrationNumber || "—" })}
         </Text>
         <Text style={{ fontSize: 12, fontFamily: font.bold, color: c.muted, marginTop: 12, marginBottom: 6 }}>
-          SERVICE AREAS
+          {t("ownerProfile.serviceAreas")}
         </Text>
         <View style={{ flexDirection: "row", gap: 6, flexWrap: "wrap" }}>
           {profile.serviceAreas.map((a) => (
@@ -611,7 +629,7 @@ export function OwnerProfile({ navigation }: NativeStackScreenProps<OwnerStackPa
       </Card>
 
       <Text style={{ fontSize: 12, fontFamily: font.bold, color: c.muted, marginBottom: 8 }}>
-        VEHICLE &amp; MACHINE PHOTOS
+        {t("ownerProfile.vehicleMachinePhotos")}
       </Text>
       <View style={{ flexDirection: "row", gap: 10, marginBottom: 20 }}>
         {PHOTO_SLOTS.map(({ slot, label }) => {
@@ -635,7 +653,7 @@ export function OwnerProfile({ navigation }: NativeStackScreenProps<OwnerStackPa
                 >
                   <Text style={{ fontSize: 10, color: c.muted, fontFamily: font.regular, textAlign: "center" }}>
                     {label}
-                    {"\n"}(tap to add)
+                    {"\n"}{t("common.tapToAdd")}
                   </Text>
                 </View>
               )}
@@ -645,7 +663,7 @@ export function OwnerProfile({ navigation }: NativeStackScreenProps<OwnerStackPa
       </View>
 
       <Text style={{ fontSize: 12, fontFamily: font.bold, color: c.muted, marginBottom: 8 }}>
-        BOREWELL WORK PHOTOS
+        {t("ownerProfile.borewellWorkPhotos")}
       </Text>
       <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 10, marginBottom: 20 }}>
         {profile.borewellPhotos.map((photo) => (
@@ -685,14 +703,14 @@ export function OwnerProfile({ navigation }: NativeStackScreenProps<OwnerStackPa
           }}
         >
           <Text style={{ fontSize: 11, color: c.muted, fontFamily: font.regular, textAlign: "center" }}>
-            + Add{"\n"}Photo
+            {t("ownerProfile.addPhoto")}
           </Text>
         </Pressable>
       </View>
 
-      <PrimaryButton title="Edit Profile" outline onPress={() => navigation.navigate("EditProfile")} />
+      <PrimaryButton title={t("ownerProfile.editProfile")} outline onPress={() => navigation.navigate("EditProfile")} />
       <Pressable onPress={logout} style={{ marginTop: 22, alignItems: "center" }}>
-        <Text style={{ fontSize: 13, fontFamily: font.bold, color: c.danger }}>Log Out</Text>
+        <Text style={{ fontSize: 13, fontFamily: font.bold, color: c.danger }}>{t("common.logOut")}</Text>
       </Pressable>
     </ScrollView>
   );
@@ -701,6 +719,7 @@ export function OwnerProfile({ navigation }: NativeStackScreenProps<OwnerStackPa
 const MAX_BAND_COUNT = bandsNeededForDepth(MAX_DEPTH_FT);
 
 export function EditProfile({ navigation }: NativeStackScreenProps<OwnerStackParams, "EditProfile">) {
+  const { t } = useTranslation();
   const { data: profile, loading } = useFetch(() => api.profile(), []);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -715,6 +734,8 @@ export function EditProfile({ navigation }: NativeStackScreenProps<OwnerStackPar
       initializedFor.current = profile.id;
     }
   }, [profile]);
+
+  const editProfileSchema = useMemo(() => makeEditProfileSchema(t), [t]);
 
   const {
     control,
@@ -748,7 +769,7 @@ export function EditProfile({ navigation }: NativeStackScreenProps<OwnerStackPar
   if (loading || !profile) {
     return (
       <ScrollView style={{ flex: 1, backgroundColor: c.bg }} contentContainerStyle={{ padding: 20 }}>
-        <ScreenTitle title="Edit Profile" onBack={() => navigation.goBack()} />
+        <ScreenTitle title={t("editProfile.title")} onBack={() => navigation.goBack()} />
         <SkeletonDetail />
       </ScrollView>
     );
@@ -757,7 +778,7 @@ export function EditProfile({ navigation }: NativeStackScreenProps<OwnerStackPar
   const save = async (data: EditProfileForm) => {
     const trimmedRateCard = trimRateCard(rateCardInputs.slice(0, bandCount));
     if (trimmedRateCard.length !== bandCount) {
-      setError(`Enter a rate for all ${bandCount} depth band${bandCount === 1 ? "" : "s"} up to your max depth`);
+      setError(t("editProfile.bandRateError", { count: bandCount }));
       return;
     }
     setBusy(true);
@@ -779,10 +800,10 @@ export function EditProfile({ navigation }: NativeStackScreenProps<OwnerStackPar
         estimatedCompletion: data.estimatedCompletion,
         availableDates,
       });
-      showToast("Profile saved");
+      showToast(t("editProfile.saved"));
       navigation.goBack();
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Failed to save");
+      setError(e instanceof Error ? e.message : t("editProfile.failedToSave"));
     } finally {
       setBusy(false);
     }
@@ -790,18 +811,18 @@ export function EditProfile({ navigation }: NativeStackScreenProps<OwnerStackPar
 
   return (
     <ScrollView style={{ flex: 1, backgroundColor: c.bg }} contentContainerStyle={{ padding: 20 }}>
-      <ScreenTitle title="Edit Profile" onBack={() => navigation.goBack()} />
-      <FieldLabel>COMPANY NAME</FieldLabel>
+      <ScreenTitle title={t("editProfile.title")} onBack={() => navigation.goBack()} />
+      <FieldLabel>{t("editProfile.companyName").toUpperCase()}</FieldLabel>
       <Controller control={control} name="name" render={({ field: { value, onChange } }) => <Field value={value} onChangeText={onChange} />} />
       <ErrorText>{errors.name?.message}</ErrorText>
-      <FieldLabel>OWNER NAME</FieldLabel>
+      <FieldLabel>{t("editProfile.ownerName").toUpperCase()}</FieldLabel>
       <Controller
         control={control}
         name="ownerName"
         render={({ field: { value, onChange } }) => <Field value={value} onChangeText={onChange} />}
       />
       <ErrorText>{errors.ownerName?.message}</ErrorText>
-      <FieldLabel>ADDRESS (WHERE YOU OPERATE)</FieldLabel>
+      <FieldLabel>{t("editProfile.address").toUpperCase()}</FieldLabel>
       <Controller
         control={control}
         name="address"
@@ -809,13 +830,13 @@ export function EditProfile({ navigation }: NativeStackScreenProps<OwnerStackPar
           <Field
             value={value}
             onChangeText={onChange}
-            placeholder="e.g. Plot 21, Industrial Area, Patancheru"
+            placeholder={t("editProfile.addressPlaceholder")}
             multiline
             style={{ minHeight: 70, textAlignVertical: "top" }}
           />
         )}
       />
-      <FieldLabel>STATE</FieldLabel>
+      <FieldLabel>{t("editProfile.state").toUpperCase()}</FieldLabel>
       <Controller
         control={control}
         name="state"
@@ -827,12 +848,12 @@ export function EditProfile({ navigation }: NativeStackScreenProps<OwnerStackPar
               setValue("city", "");
             }}
             options={INDIA_STATES}
-            placeholder="Select State"
+            placeholder={t("editProfile.selectState")}
           />
         )}
       />
       <ErrorText>{errors.state?.message}</ErrorText>
-      <FieldLabel>DISTRICT</FieldLabel>
+      <FieldLabel>{t("editProfile.district").toUpperCase()}</FieldLabel>
       <Controller
         control={control}
         name="city"
@@ -841,95 +862,99 @@ export function EditProfile({ navigation }: NativeStackScreenProps<OwnerStackPar
             value={value}
             onChange={onChange}
             options={DISTRICTS_BY_STATE[selectedState] ?? []}
-            placeholder="Select District"
-            disabledMessage="Select a state first"
+            placeholder={t("editProfile.selectDistrict")}
+            disabledMessage={t("editProfile.selectStateFirst")}
           />
         )}
       />
       <ErrorText>{errors.city?.message}</ErrorText>
-      <FieldLabel>EXPERIENCE (YEARS)</FieldLabel>
+      <FieldLabel>{t("editProfile.experienceYears").toUpperCase()}</FieldLabel>
       <Controller
         control={control}
         name="experienceYears"
         render={({ field: { value, onChange } }) => <Field value={value} onChangeText={onChange} keyboardType="number-pad" />}
       />
       <ErrorText>{errors.experienceYears?.message}</ErrorText>
-      <FieldLabel>REGISTRATION NUMBER</FieldLabel>
+      <FieldLabel>{t("editProfile.registrationNumber").toUpperCase()}</FieldLabel>
       <Controller
         control={control}
         name="registrationNumber"
         render={({ field: { value, onChange } }) => <Field value={value} onChangeText={onChange} />}
       />
-      <FieldLabel>SERVICE AREAS (DISTRICTS YOU OPERATE IN)</FieldLabel>
+      <FieldLabel>{t("editProfile.serviceAreas").toUpperCase()}</FieldLabel>
       <Controller
         control={control}
         name="serviceAreas"
         render={({ field: { value, onChange } }) => (
-          <MultiSelectField values={value} onChange={onChange} options={ALL_DISTRICTS} placeholder="Select service areas" />
+          <MultiSelectField values={value} onChange={onChange} options={ALL_DISTRICTS} placeholder={t("editProfile.serviceAreasPlaceholder")} />
         )}
       />
       <ErrorText>{errors.serviceAreas?.message}</ErrorText>
-      <FieldLabel>MACHINE TYPE</FieldLabel>
+      <FieldLabel>{t("editProfile.machineType").toUpperCase()}</FieldLabel>
       <Controller
         control={control}
         name="machineType"
         render={({ field: { value, onChange } }) => <Field value={value} onChangeText={onChange} />}
       />
       <ErrorText>{errors.machineType?.message}</ErrorText>
-      <FieldLabel>ESTIMATED COMPLETION (SHOWN ON EVERY QUOTE)</FieldLabel>
+      <FieldLabel>{t("editProfile.estimatedCompletion").toUpperCase()}</FieldLabel>
       <Controller
         control={control}
         name="estimatedCompletion"
-        render={({ field: { value, onChange } }) => <Field value={value} onChangeText={onChange} placeholder="e.g. 3–4 days" />}
+        render={({ field: { value, onChange } }) => (
+          <Field value={value} onChangeText={onChange} placeholder={t("editProfile.estimatedCompletionPlaceholder")} />
+        )}
       />
       <ErrorText>{errors.estimatedCompletion?.message}</ErrorText>
-      <FieldLabel>MAXIMUM DRILLING DEPTH (FT)</FieldLabel>
+      <FieldLabel>{t("editProfile.maxDepth").toUpperCase()}</FieldLabel>
       <Controller
         control={control}
         name="maxDepthFt"
         render={({ field: { value, onChange } }) => (
-          <Field value={value} onChangeText={onChange} keyboardType="number-pad" placeholder="e.g. 600, 800, 1500" />
+          <Field value={value} onChangeText={onChange} keyboardType="number-pad" placeholder={t("editProfile.maxDepthPlaceholder")} />
         )}
       />
       <ErrorText>{errors.maxDepthFt?.message}</ErrorText>
       <Text style={{ fontSize: 12, color: c.mutedLight, marginTop: -6, marginBottom: 14, fontFamily: font.regular }}>
-        Requests deeper than this are never sent to you.
+        {t("editProfile.maxDepthHint")}
       </Text>
 
       {bandCount > 0 && (
         <>
           <Text style={{ fontSize: 15, fontFamily: font.extrabold, color: c.text, marginTop: 8, marginBottom: 4 }}>
-            Pricing (₹ per ft by depth)
+            {t("editProfile.pricingTitle")}
           </Text>
           <Text style={{ fontSize: 12, color: c.muted, marginBottom: 14, fontFamily: font.regular }}>
-            Set a rate for every 100ft band up to your max depth. Quotes are generated automatically for
-            matching, available leads using these rates — no manual submission needed.
+            {t("editProfile.pricingHint")}
           </Text>
           <RateCardField values={rateCardInputs} onChange={setRateCardInputs} bandCount={bandCount} />
         </>
       )}
 
-      <FieldLabel>MACHINE &amp; CASING CHARGE (₹, FLAT)</FieldLabel>
+      <FieldLabel>{t("editProfile.casingRate").toUpperCase()}</FieldLabel>
       <Controller
         control={control}
         name="casingRate"
         render={({ field: { value, onChange } }) => (
-          <Field value={value} onChangeText={onChange} keyboardType="number-pad" placeholder="e.g. 11500" />
+          <Field value={value} onChangeText={onChange} keyboardType="number-pad" placeholder={t("editProfile.casingRatePlaceholder")} />
         )}
       />
       <ErrorText>{errors.casingRate?.message}</ErrorText>
 
       <Text style={{ fontSize: 15, fontFamily: font.extrabold, color: c.text, marginTop: 8, marginBottom: 4 }}>
-        Available Dates
+        {t("editProfile.availableDatesTitle")}
       </Text>
       <Text style={{ fontSize: 12, color: c.muted, marginBottom: 14, fontFamily: font.regular }}>
-        Mark the dates you can take on a new job. Requests are only auto-matched to you on dates you've
-        marked available.
+        {t("editProfile.availableDatesHint")}
       </Text>
-      <CalendarField mode="multi" value={availableDates} onChange={setAvailableDates} placeholder="Select available dates" />
+      <CalendarField mode="multi" value={availableDates} onChange={setAvailableDates} placeholder={t("editProfile.selectAvailableDates")} />
 
       <ErrorText>{error}</ErrorText>
-      <PrimaryButton title="Save Profile" onPress={handleSubmit(save)} busy={busy} style={{ marginTop: 8 }} />
+      <PrimaryButton title={t("editProfile.saveProfile")} onPress={handleSubmit(save)} busy={busy} style={{ marginTop: 8 }} />
+
+      <View style={{ alignItems: "center", marginTop: 22 }}>
+        <LanguagePicker />
+      </View>
     </ScrollView>
   );
 }

@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import {
   Image,
   ImageBackground,
@@ -19,13 +19,17 @@ import { api, setCustomerToken, CustomerProfile } from "../../api";
 import { showToast } from "../../components/Toast";
 import { c, font } from "../../theme";
 import { Field, FieldLabel, LoadingScreen, PrimaryButton, ErrorText, ScreenTitle } from "../../components/ui";
+import { LanguagePicker } from "../../components/LanguagePicker";
+import { useTranslation } from "../../i18n/LanguageContext";
 import type { CustomerStackParams } from "../../navigation";
 
-const completeProfileSchema = z.object({
-  name: z.string().min(1, "Enter your name"),
-  address: z.string().min(1, "Enter your address"),
-});
-type CompleteProfileForm = z.infer<typeof completeProfileSchema>;
+function makeCompleteProfileSchema(t: (key: string) => string) {
+  return z.object({
+    name: z.string().min(1, t("completeProfile.nameRequired")),
+    address: z.string().min(1, t("completeProfile.addressRequired")),
+  });
+}
+type CompleteProfileForm = z.infer<ReturnType<typeof makeCompleteProfileSchema>>;
 
 const bg = require("../../../assets/login-borewell-bg.png");
 
@@ -35,6 +39,7 @@ const CONTENT_MAX_WIDTH = 380;
 export function CustomerLogin({ navigation }: NativeStackScreenProps<CustomerStackParams, "CustomerLogin">) {
   const { width } = useWindowDimensions();
   const isWide = width >= WIDE_BREAKPOINT;
+  const { t } = useTranslation();
   const [phone, setPhone] = useState("");
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
@@ -46,7 +51,7 @@ export function CustomerLogin({ navigation }: NativeStackScreenProps<CustomerSta
       await api.customerRequestOtp(phone);
       navigation.navigate("CustomerOtp", { phone });
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Failed to send OTP");
+      setError(e instanceof Error ? e.message : t("customerLogin.failedToSend"));
     } finally {
       setBusy(false);
     }
@@ -68,14 +73,16 @@ export function CustomerLogin({ navigation }: NativeStackScreenProps<CustomerSta
           fontFamily: font.regular,
         }}
       >
-        Connecting customers with trusted borewell companies
+        {t("roleSelect.tagline")}
       </Text>
     </>
   );
 
   const form = (
     <View style={{ width: "100%", maxWidth: CONTENT_MAX_WIDTH, alignSelf: "center" }}>
-      <Text style={{ fontSize: 13, fontFamily: font.bold, color: c.muted, marginBottom: 6 }}>Mobile Number</Text>
+      <Text style={{ fontSize: 13, fontFamily: font.bold, color: c.muted, marginBottom: 6 }}>
+        {t("customerLogin.mobileNumber")}
+      </Text>
       <View
         style={{
           flexDirection: "row",
@@ -96,15 +103,18 @@ export function CustomerLogin({ navigation }: NativeStackScreenProps<CustomerSta
           keyboardType="phone-pad"
           maxLength={10}
           style={{ flex: 1, fontSize: 16, fontFamily: font.regular, color: c.text }}
-          placeholder="10-digit mobile number"
+          placeholder={t("customerLogin.mobilePlaceholder")}
           placeholderTextColor={c.mutedLight}
         />
       </View>
       <ErrorText>{error}</ErrorText>
-      <PrimaryButton title="Send OTP" onPress={send} busy={busy} style={{ marginTop: 22 }} />
+      <PrimaryButton title={t("customerLogin.sendOtp")} onPress={send} busy={busy} style={{ marginTop: 22 }} />
       <Text style={{ fontSize: 11, color: c.mutedLight, textAlign: "center", marginTop: 16, fontFamily: font.regular }}>
-        By continuing you agree to our Terms & Conditions
+        {t("customerLogin.terms")}
       </Text>
+      <View style={{ alignItems: "center", marginTop: 20 }}>
+        <LanguagePicker />
+      </View>
     </View>
   );
 
@@ -128,7 +138,7 @@ export function CustomerLogin({ navigation }: NativeStackScreenProps<CustomerSta
                 fontFamily: font.regular,
               }}
             >
-              Connecting customers with trusted borewell companies
+              {t("roleSelect.tagline")}
             </Text>
           </View>
           {form}
@@ -156,6 +166,7 @@ export function CustomerOtp({ navigation, route }: NativeStackScreenProps<Custom
   const { phone } = route.params;
   const { width } = useWindowDimensions();
   const isWide = width >= WIDE_BREAKPOINT;
+  const { t } = useTranslation();
   const [code, setCode] = useState("");
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
@@ -171,7 +182,7 @@ export function CustomerOtp({ navigation, route }: NativeStackScreenProps<Custom
         routes: isNew ? [{ name: "CustomerHome" }, { name: "CompleteProfile" }] : [{ name: "CustomerHome" }],
       });
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Verification failed");
+      setError(e instanceof Error ? e.message : t("customerOtp.failed"));
     } finally {
       setBusy(false);
     }
@@ -187,9 +198,9 @@ export function CustomerOtp({ navigation, route }: NativeStackScreenProps<Custom
       }
     >
       <View style={{ width: "100%", maxWidth: CONTENT_MAX_WIDTH }}>
-        <ScreenTitle title="Enter OTP" onBack={() => navigation.goBack()} />
+        <ScreenTitle title={t("customerOtp.title")} onBack={() => navigation.goBack()} />
         <Text style={{ fontSize: 13, color: c.muted, fontFamily: font.regular }}>
-          We've sent a 6-digit code to +91 {phone}
+          {t("customerOtp.sentTo", { phone })}
         </Text>
         <TextInput
           value={code}
@@ -211,16 +222,17 @@ export function CustomerOtp({ navigation, route }: NativeStackScreenProps<Custom
           }}
         />
         <Text style={{ fontSize: 12, color: c.mutedLight, textAlign: "center", marginTop: 14, fontFamily: font.regular }}>
-          Resend OTP in 00:30
+          {t("customerOtp.resend")}
         </Text>
         <ErrorText>{error}</ErrorText>
-        <PrimaryButton title="Verify OTP" onPress={verify} busy={busy} style={{ marginTop: 26 }} />
+        <PrimaryButton title={t("customerOtp.verify")} onPress={verify} busy={busy} style={{ marginTop: 26 }} />
       </View>
     </ScrollView>
   );
 }
 
 export function CompleteProfile({ navigation }: NativeStackScreenProps<CustomerStackParams, "CompleteProfile">) {
+  const { t } = useTranslation();
   const [profile, setProfile] = useState<CustomerProfile | null>(null);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
@@ -228,6 +240,8 @@ export function CompleteProfile({ navigation }: NativeStackScreenProps<CustomerS
   useEffect(() => {
     api.customerProfile().then(setProfile);
   }, []);
+
+  const completeProfileSchema = useMemo(() => makeCompleteProfileSchema(t), [t]);
 
   const {
     control,
@@ -243,10 +257,10 @@ export function CompleteProfile({ navigation }: NativeStackScreenProps<CustomerS
     setError("");
     try {
       await api.updateCustomerProfile({ name: data.name.trim(), address: data.address.trim() });
-      showToast("Profile saved");
+      showToast(t("completeProfile.saved"));
       navigation.goBack();
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Failed to save");
+      setError(e instanceof Error ? e.message : t("completeProfile.failedToSave"));
     } finally {
       setBusy(false);
     }
@@ -261,18 +275,20 @@ export function CompleteProfile({ navigation }: NativeStackScreenProps<CustomerS
 
   return (
     <ScrollView style={{ flex: 1, backgroundColor: c.bg }} contentContainerStyle={{ padding: 20 }}>
-      <ScreenTitle title="Complete Your Profile" onBack={() => navigation.goBack()} />
+      <ScreenTitle title={t("completeProfile.title")} onBack={() => navigation.goBack()} />
       <Text style={{ fontSize: 13, color: c.muted, marginBottom: 18, fontFamily: font.regular }}>
-        A few details so borewell companies and support can reach you correctly.
+        {t("completeProfile.subtitle")}
       </Text>
-      <FieldLabel>FULL NAME</FieldLabel>
+      <FieldLabel>{t("completeProfile.fullName").toUpperCase()}</FieldLabel>
       <Controller
         control={control}
         name="name"
-        render={({ field: { value, onChange } }) => <Field value={value} onChangeText={onChange} placeholder="e.g. Ramesh Reddy" />}
+        render={({ field: { value, onChange } }) => (
+          <Field value={value} onChangeText={onChange} placeholder={t("completeProfile.fullNamePlaceholder")} />
+        )}
       />
       <ErrorText>{errors.name?.message}</ErrorText>
-      <FieldLabel>ADDRESS</FieldLabel>
+      <FieldLabel>{t("completeProfile.address").toUpperCase()}</FieldLabel>
       <Controller
         control={control}
         name="address"
@@ -280,7 +296,7 @@ export function CompleteProfile({ navigation }: NativeStackScreenProps<CustomerS
           <Field
             value={value}
             onChangeText={onChange}
-            placeholder="e.g. 12-3-45 Main Road, Patancheru"
+            placeholder={t("completeProfile.addressPlaceholder")}
             multiline
             style={{ minHeight: 80, textAlignVertical: "top", marginBottom: 8 }}
           />
@@ -288,12 +304,16 @@ export function CompleteProfile({ navigation }: NativeStackScreenProps<CustomerS
       />
       <ErrorText>{errors.address?.message}</ErrorText>
       <Text style={{ fontSize: 12, color: c.mutedLight, marginBottom: 14, fontFamily: font.regular }}>
-        Mobile: +91 {profile.phone}
+        {t("completeProfile.mobile", { phone: profile.phone })}
       </Text>
       <ErrorText>{error}</ErrorText>
-      <PrimaryButton title="Save & Continue" onPress={handleSubmit(save)} busy={busy} />
+      <PrimaryButton title={t("completeProfile.saveAndContinue")} onPress={handleSubmit(save)} busy={busy} />
+
+      <View style={{ alignItems: "center", marginTop: 22 }}>
+        <LanguagePicker />
+      </View>
       <Pressable onPress={logout} style={{ marginTop: 22, alignItems: "center" }}>
-        <Text style={{ fontSize: 13, fontFamily: font.bold, color: c.danger }}>Log Out</Text>
+        <Text style={{ fontSize: 13, fontFamily: font.bold, color: c.danger }}>{t("common.logOut")}</Text>
       </Pressable>
     </ScrollView>
   );

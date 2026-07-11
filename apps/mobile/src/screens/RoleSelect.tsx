@@ -2,6 +2,8 @@ import React from "react";
 import { Image, ImageBackground, Pressable, Text, View, useWindowDimensions } from "react-native";
 import { NativeStackScreenProps } from "@react-navigation/native-stack";
 import { c, font } from "../theme";
+import { useTranslation } from "../i18n/LanguageContext";
+import { LanguagePicker } from "../components/LanguagePicker";
 import type { RootStackParams } from "../navigation";
 
 const heroImage = require("../../assets/borewell-hero.jpg");
@@ -12,9 +14,13 @@ const CONTENT_MAX_WIDTH = 380;
 export function RoleSelect({ navigation }: NativeStackScreenProps<RootStackParams, "RoleSelect">) {
   const { width } = useWindowDimensions();
   const isWide = width >= WIDE_BREAKPOINT;
+  const { t } = useTranslation();
 
   const content = (
     <View style={{ width: "100%", maxWidth: CONTENT_MAX_WIDTH, alignSelf: "center" }}>
+      <View style={{ alignItems: "center", marginBottom: 24 }}>
+        <LanguagePicker dark />
+      </View>
       <View style={{ alignItems: "center", marginBottom: 48 }}>
         <Text style={{ fontSize: 30, fontFamily: font.extrabold, color: "#fff", letterSpacing: 0.5 }}>BOREWELL</Text>
         <Text style={{ fontSize: 30, fontFamily: font.extrabold, color: c.greenLight, letterSpacing: 0.5, marginTop: -6 }}>
@@ -30,7 +36,7 @@ export function RoleSelect({ navigation }: NativeStackScreenProps<RootStackParam
             fontFamily: font.regular,
           }}
         >
-          Connecting customers with trusted borewell companies
+          {t("roleSelect.tagline")}
         </Text>
       </View>
 
@@ -38,7 +44,7 @@ export function RoleSelect({ navigation }: NativeStackScreenProps<RootStackParam
         onPress={() => navigation.navigate("Customer")}
         style={{ backgroundColor: c.green, borderRadius: 12, paddingVertical: 16, alignItems: "center" }}
       >
-        <Text style={{ color: "#fff", fontSize: 16, fontFamily: font.bold }}>Customer Login</Text>
+        <Text style={{ color: "#fff", fontSize: 16, fontFamily: font.bold }}>{t("roleSelect.customerLogin")}</Text>
       </Pressable>
       <Pressable
         onPress={() => navigation.navigate("Owner")}
@@ -52,7 +58,7 @@ export function RoleSelect({ navigation }: NativeStackScreenProps<RootStackParam
           marginTop: 14,
         }}
       >
-        <Text style={{ color: "#fff", fontSize: 16, fontFamily: font.bold }}>Borewell Owner Login</Text>
+        <Text style={{ color: "#fff", fontSize: 16, fontFamily: font.bold }}>{t("roleSelect.ownerLogin")}</Text>
       </Pressable>
     </View>
   );

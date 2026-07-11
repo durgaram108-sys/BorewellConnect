@@ -10,8 +10,21 @@ import {
   Manrope_700Bold,
   Manrope_800ExtraBold,
 } from "@expo-google-fonts/manrope";
+import {
+  NotoSansDevanagari_500Medium,
+  NotoSansDevanagari_600SemiBold,
+  NotoSansDevanagari_700Bold,
+  NotoSansDevanagari_800ExtraBold,
+} from "@expo-google-fonts/noto-sans-devanagari";
+import {
+  NotoSansTelugu_500Medium,
+  NotoSansTelugu_600SemiBold,
+  NotoSansTelugu_700Bold,
+  NotoSansTelugu_800ExtraBold,
+} from "@expo-google-fonts/noto-sans-telugu";
 import { loadTokens, hasCustomerToken, hasOwnerToken } from "./src/api";
 import { c } from "./src/theme";
+import { LanguageProvider } from "./src/i18n/LanguageContext";
 import { ToastHost } from "./src/components/Toast";
 import type { CustomerStackParams, OwnerStackParams, RootStackParams } from "./src/navigation";
 import { RoleSelect } from "./src/screens/RoleSelect";
@@ -101,6 +114,14 @@ export default function App() {
     Manrope_600SemiBold,
     Manrope_700Bold,
     Manrope_800ExtraBold,
+    NotoSansDevanagari_500Medium,
+    NotoSansDevanagari_600SemiBold,
+    NotoSansDevanagari_700Bold,
+    NotoSansDevanagari_800ExtraBold,
+    NotoSansTelugu_500Medium,
+    NotoSansTelugu_600SemiBold,
+    NotoSansTelugu_700Bold,
+    NotoSansTelugu_800ExtraBold,
   });
 
   useEffect(() => {
@@ -119,14 +140,16 @@ export default function App() {
   }
 
   return (
-    <NavigationContainer theme={theme}>
-      <StatusBar style="dark" />
-      <Root.Navigator screenOptions={{ headerShown: false }}>
-        <Root.Screen name="RoleSelect" component={RoleSelect} />
-        <Root.Screen name="Customer" component={CustomerFlow} />
-        <Root.Screen name="Owner" component={OwnerFlow} />
-      </Root.Navigator>
-      <ToastHost />
-    </NavigationContainer>
+    <LanguageProvider>
+      <NavigationContainer theme={theme}>
+        <StatusBar style="dark" />
+        <Root.Navigator screenOptions={{ headerShown: false }}>
+          <Root.Screen name="RoleSelect" component={RoleSelect} />
+          <Root.Screen name="Customer" component={CustomerFlow} />
+          <Root.Screen name="Owner" component={OwnerFlow} />
+        </Root.Navigator>
+        <ToastHost />
+      </NavigationContainer>
+    </LanguageProvider>
   );
 }

@@ -9,9 +9,11 @@ import { c, font, inr } from "../../theme";
 import { Card, PrimaryButton, ErrorText, ScreenTitle, SkeletonDetail, SkeletonList } from "../../components/ui";
 import { bandLabel, computeTotalFromBands } from "../../utils/pricing";
 import { useFetch } from "../../hooks/useFetch";
+import { useTranslation } from "../../i18n/LanguageContext";
 import type { CustomerStackParams } from "../../navigation";
 
 export function Quotations({ navigation, route }: NativeStackScreenProps<CustomerStackParams, "Quotations">) {
+  const { t } = useTranslation();
   const { requestId } = route.params;
   const { data, loading, refreshing, refresh } = useFetch(() => api.quotesFor(requestId), [requestId]);
   const quotes = data ?? [];
@@ -22,9 +24,9 @@ export function Quotations({ navigation, route }: NativeStackScreenProps<Custome
       contentContainerStyle={{ padding: 20 }}
       refreshControl={<RefreshControl refreshing={refreshing} onRefresh={refresh} />}
     >
-      <ScreenTitle title={`Quotations (${quotes.length})`} onBack={() => navigation.goBack()} />
+      <ScreenTitle title={t("quotations.title", { count: quotes.length })} onBack={() => navigation.goBack()} />
       <Text style={{ fontSize: 12, color: c.muted, marginTop: -10, marginBottom: 16, fontFamily: font.regular }}>
-        Ranked by price, rating &amp; distance
+        {t("quotations.rankedBy")}
       </Text>
 
       {loading ? (
@@ -32,9 +34,7 @@ export function Quotations({ navigation, route }: NativeStackScreenProps<Custome
       ) : (
         <>
           {quotes.length === 0 && (
-            <Text style={{ fontSize: 13, color: c.muted, fontFamily: font.regular }}>
-              No quotations yet — companies in your area have been notified.
-            </Text>
+            <Text style={{ fontSize: 13, color: c.muted, fontFamily: font.regular }}>{t("quotations.empty")}</Text>
           )}
           {quotes.map((q) => (
             <Pressable key={q.id} onPress={() => navigation.navigate("QuoteDetail", { requestId, quote: q })}>
@@ -67,7 +67,7 @@ export function Quotations({ navigation, route }: NativeStackScreenProps<Custome
                     </Text>
                   </Pressable>
                   <Text style={{ fontSize: 12, color: c.muted, marginTop: 2, fontFamily: font.regular }}>
-                    ★ {q.rating} · {q.distanceKm} km away
+                    ★ {q.rating} · {t("quotations.kmAway", { km: q.distanceKm })}
                   </Text>
                   {q.isTop && (
                     <View
@@ -80,7 +80,7 @@ export function Quotations({ navigation, route }: NativeStackScreenProps<Custome
                         marginTop: 5,
                       }}
                     >
-                      <Text style={{ fontSize: 10, fontFamily: font.extrabold, color: "#fff" }}>BEST MATCH</Text>
+                      <Text style={{ fontSize: 10, fontFamily: font.extrabold, color: "#fff" }}>{t("quotations.bestMatch")}</Text>
                     </View>
                   )}
                 </View>
@@ -106,6 +106,7 @@ function ScoreBar({ label, pct, color }: { label: string; pct: number; color: st
 }
 
 export function QuoteDetail({ navigation, route }: NativeStackScreenProps<CustomerStackParams, "QuoteDetail">) {
+  const { t } = useTranslation();
   const { quote } = route.params;
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
@@ -128,7 +129,7 @@ export function QuoteDetail({ navigation, route }: NativeStackScreenProps<Custom
         totalPrice: quote.totalPrice,
       });
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Booking failed");
+      setError(e instanceof Error ? e.message : t("quoteDetail.bookingFailed"));
     } finally {
       setBusy(false);
     }
@@ -136,24 +137,24 @@ export function QuoteDetail({ navigation, route }: NativeStackScreenProps<Custom
 
   return (
     <ScrollView style={{ flex: 1, backgroundColor: c.bg }} contentContainerStyle={{ padding: 20 }}>
-      <ScreenTitle title="Quotation Details" onBack={() => navigation.goBack()} />
+      <ScreenTitle title={t("quoteDetail.title")} onBack={() => navigation.goBack()} />
       <Pressable onPress={() => navigation.navigate("CompanyProfile", { companyId: quote.companyId })}>
         <Text style={{ fontSize: 18, fontFamily: font.extrabold, color: c.text, textDecorationLine: "underline" }}>
           {quote.companyName}
         </Text>
       </Pressable>
       <Text style={{ fontSize: 12, color: c.muted, marginTop: 4, fontFamily: font.regular }}>
-        {quote.yearsExperience}+ years experience · {quote.machineType} machine
+        {t("quoteDetail.yearsExperience", { years: quote.yearsExperience, machine: quote.machineType })}
       </Text>
       <Text style={{ fontSize: 26, fontFamily: font.extrabold, color: c.green, marginTop: 14 }}>
         {inr(quote.totalPrice)}
       </Text>
       <Text style={{ fontSize: 12, color: c.mutedLight, marginTop: 2, fontFamily: font.regular }}>
-        For {quote.depthFt} ft drilling (avg ₹{Math.round(drillingRate)}/ft) + machine &amp; casing
+        {t("quoteDetail.forDepth", { depth: quote.depthFt, rate: Math.round(drillingRate) })}
       </Text>
 
       <Card style={{ marginTop: 16, padding: 14 }}>
-        <Text style={{ fontSize: 12, fontFamily: font.bold, color: c.muted, marginBottom: 8 }}>RATE BREAKDOWN</Text>
+        <Text style={{ fontSize: 12, fontFamily: font.bold, color: c.muted, marginBottom: 8 }}>{t("quoteDetail.rateBreakdown")}</Text>
         {quote.bandRates.map((rate, i) => (
           <View
             key={i}
@@ -179,54 +180,55 @@ export function QuoteDetail({ navigation, route }: NativeStackScreenProps<Custom
             marginTop: 4,
           }}
         >
-          <Text style={{ fontSize: 13, color: c.muted, fontFamily: font.regular }}>Machine &amp; Casing Charges</Text>
+          <Text style={{ fontSize: 13, color: c.muted, fontFamily: font.regular }}>{t("quoteDetail.machineCasingCharges")}</Text>
           <Text style={{ fontSize: 13, color: c.muted, fontFamily: font.semibold }}>{inr(quote.casingRate)}</Text>
         </View>
         <View style={{ flexDirection: "row", justifyContent: "space-between", paddingTop: 10 }}>
-          <Text style={{ fontSize: 14, color: c.text, fontFamily: font.extrabold }}>Total</Text>
+          <Text style={{ fontSize: 14, color: c.text, fontFamily: font.extrabold }}>{t("quoteDetail.total")}</Text>
           <Text style={{ fontSize: 14, color: c.green, fontFamily: font.extrabold }}>{inr(quote.totalPrice)}</Text>
         </View>
       </Card>
 
       <View style={{ marginTop: 8 }}>
-        <ScoreBar label="Price competitiveness" pct={pricePct} color={c.green} />
-        <ScoreBar label={`Rating (${quote.rating}★)`} pct={ratingPct} color={c.orange} />
-        <ScoreBar label={`Proximity (${quote.distanceKm} km)`} pct={distPct} color={c.navy} />
+        <ScoreBar label={t("quoteDetail.priceCompetitiveness")} pct={pricePct} color={c.green} />
+        <ScoreBar label={t("quoteDetail.rating", { rating: quote.rating })} pct={ratingPct} color={c.orange} />
+        <ScoreBar label={t("quoteDetail.proximity", { km: quote.distanceKm })} pct={distPct} color={c.navy} />
       </View>
 
       <ErrorText>{error}</ErrorText>
-      <PrimaryButton title="Book Now" onPress={book} busy={busy} style={{ marginTop: 28 }} />
+      <PrimaryButton title={t("quoteDetail.bookNow")} onPress={book} busy={busy} style={{ marginTop: 28 }} />
     </ScrollView>
   );
 }
 
 export function BookingConfirm({ navigation, route }: NativeStackScreenProps<CustomerStackParams, "BookingConfirm">) {
+  const { t } = useTranslation();
   const { bookingId, code, companyName, totalPrice } = route.params;
 
   return (
     <ScrollView style={{ flex: 1, backgroundColor: c.bg }} contentContainerStyle={{ padding: 20, paddingTop: 24, alignItems: "center" }}>
       <View style={{ alignSelf: "stretch" }}>
-        <ScreenTitle title="Booking Confirmed" onBack={() => navigation.goBack()} />
+        <ScreenTitle title={t("bookingConfirm.title")} onBack={() => navigation.goBack()} />
       </View>
       <Svg width={64} height={64} viewBox="0 0 64 64">
         <Circle cx={32} cy={32} r={30} fill={c.green} />
         <Path d="M20 33l8 8 16-18" stroke="#fff" strokeWidth={4} fill="none" strokeLinecap="round" strokeLinejoin="round" />
       </Svg>
-      <Text style={{ fontSize: 20, fontFamily: font.extrabold, marginTop: 18, color: c.text }}>Booking Confirmed!</Text>
+      <Text style={{ fontSize: 20, fontFamily: font.extrabold, marginTop: 18, color: c.text }}>{t("bookingConfirm.heading")}</Text>
       <Text style={{ fontSize: 13, color: c.muted, marginTop: 6, fontFamily: font.regular }}>
-        You've booked {companyName}
+        {t("bookingConfirm.booked", { company: companyName })}
       </Text>
       <Card style={{ marginTop: 26, alignSelf: "stretch", alignItems: "center", padding: 16 }}>
-        <Text style={{ fontSize: 11, color: c.mutedLight, fontFamily: font.regular }}>BOOKING ID</Text>
+        <Text style={{ fontSize: 11, color: c.mutedLight, fontFamily: font.regular }}>{t("bookingConfirm.bookingId")}</Text>
         <Text style={{ fontSize: 18, fontFamily: font.extrabold, marginTop: 4, color: c.text }}>{code}</Text>
-        <Text style={{ fontSize: 11, color: c.mutedLight, marginTop: 14, fontFamily: font.regular }}>AGREED TOTAL</Text>
+        <Text style={{ fontSize: 11, color: c.mutedLight, marginTop: 14, fontFamily: font.regular }}>{t("bookingConfirm.agreedTotal")}</Text>
         <Text style={{ fontSize: 18, fontFamily: font.extrabold, marginTop: 4, color: c.green }}>{inr(totalPrice)}</Text>
       </Card>
       <Text style={{ fontSize: 12, color: c.mutedLight, marginTop: 16, fontFamily: font.regular }}>
-        Company contact details will be shared after payment
+        {t("bookingConfirm.contactNote")}
       </Text>
       <PrimaryButton
-        title="Proceed to Payment"
+        title={t("bookingConfirm.proceedToPayment")}
         onPress={() => navigation.navigate("Payment", { bookingId })}
         style={{ marginTop: 26, alignSelf: "stretch" }}
       />
@@ -237,6 +239,12 @@ export function BookingConfirm({ navigation, route }: NativeStackScreenProps<Cus
 const PAYMENT_METHODS = ["UPI", "Card", "Net Banking"] as const;
 
 export function Payment({ navigation, route }: NativeStackScreenProps<CustomerStackParams, "Payment">) {
+  const { t } = useTranslation();
+  const PAYMENT_METHOD_LABELS: Record<(typeof PAYMENT_METHODS)[number], string> = {
+    UPI: t("payment.upi"),
+    Card: t("payment.card"),
+    "Net Banking": t("payment.netBanking"),
+  };
   const { bookingId } = route.params;
   const [method, setMethod] = useState<(typeof PAYMENT_METHODS)[number]>("UPI");
   const [error, setError] = useState("");
@@ -256,7 +264,7 @@ export function Payment({ navigation, route }: NativeStackScreenProps<CustomerSt
           razorpayPaymentId: paymentId,
           razorpaySignature: `mock_sig_${paymentId}`,
         });
-        showToast("Payment successful");
+        showToast(t("payment.successful"));
         navigation.reset({
           index: 1,
           routes: [{ name: "CustomerHome" }, { name: "Tracking", params: { bookingId } }],
@@ -265,7 +273,7 @@ export function Payment({ navigation, route }: NativeStackScreenProps<CustomerSt
         setCheckout({ orderId: order.orderId, keyId: order.keyId, amount: order.amount });
       }
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Payment failed");
+      setError(e instanceof Error ? e.message : t("payment.failed"));
     } finally {
       setBusy(false);
     }
@@ -281,7 +289,7 @@ export function Payment({ navigation, route }: NativeStackScreenProps<CustomerSt
           razorpaySignature: msg.razorpay_signature,
         });
         setCheckout(null);
-        showToast("Payment successful");
+        showToast(t("payment.successful"));
         navigation.reset({
           index: 1,
           routes: [{ name: "CustomerHome" }, { name: "Tracking", params: { bookingId } }],
@@ -291,13 +299,13 @@ export function Payment({ navigation, route }: NativeStackScreenProps<CustomerSt
       }
     } catch {
       setCheckout(null);
-      setError("Payment was not completed");
+      setError(t("payment.notCompleted"));
     }
   };
 
   return (
     <ScrollView style={{ flex: 1, backgroundColor: c.bg }} contentContainerStyle={{ padding: 20 }}>
-      <ScreenTitle title="Booking Fee" onBack={() => navigation.goBack()} />
+      <ScreenTitle title={t("payment.title")} onBack={() => navigation.goBack()} />
       <View style={{ alignItems: "center" }}>
         <Text style={{ fontSize: 36, fontFamily: font.extrabold, color: c.navy }}>₹500</Text>
         <Text
@@ -310,7 +318,7 @@ export function Payment({ navigation, route }: NativeStackScreenProps<CustomerSt
             fontFamily: font.regular,
           }}
         >
-          Balance amount is payable directly to the company after work completion
+          {t("payment.balanceNote")}
         </Text>
       </View>
 
@@ -343,7 +351,7 @@ export function Payment({ navigation, route }: NativeStackScreenProps<CustomerSt
                 }}
               />
               <Text style={{ fontSize: 14, fontFamily: active ? font.semibold : font.regular, color: active ? c.text : c.muted }}>
-                {m}
+                {PAYMENT_METHOD_LABELS[m]}
               </Text>
             </Pressable>
           );
@@ -351,7 +359,7 @@ export function Payment({ navigation, route }: NativeStackScreenProps<CustomerSt
       </View>
 
       <ErrorText>{error}</ErrorText>
-      <PrimaryButton title="Pay ₹500 Securely" onPress={pay} busy={busy} style={{ marginTop: 24 }} />
+      <PrimaryButton title={t("payment.payButton")} onPress={pay} busy={busy} style={{ marginTop: 24 }} />
 
       <Modal visible={!!checkout} animationType="slide" onRequestClose={() => setCheckout(null)}>
         {checkout && (
@@ -387,13 +395,14 @@ export function Payment({ navigation, route }: NativeStackScreenProps<CustomerSt
 }
 
 export function CompanyProfileView({ navigation, route }: NativeStackScreenProps<CustomerStackParams, "CompanyProfile">) {
+  const { t } = useTranslation();
   const { companyId } = route.params;
   const { data: profile, loading, refreshing, refresh } = useFetch(() => api.companyProfile(companyId), [companyId]);
 
   if (loading || !profile) {
     return (
       <ScrollView style={{ flex: 1, backgroundColor: c.bg }} contentContainerStyle={{ padding: 20 }}>
-        <ScreenTitle title="Company Profile" onBack={() => navigation.goBack()} />
+        <ScreenTitle title={t("companyProfile.title")} onBack={() => navigation.goBack()} />
         <SkeletonDetail />
       </ScrollView>
     );
@@ -405,23 +414,23 @@ export function CompanyProfileView({ navigation, route }: NativeStackScreenProps
       contentContainerStyle={{ padding: 20 }}
       refreshControl={<RefreshControl refreshing={refreshing} onRefresh={refresh} />}
     >
-      <ScreenTitle title="Company Profile" onBack={() => navigation.goBack()} />
+      <ScreenTitle title={t("companyProfile.title")} onBack={() => navigation.goBack()} />
       <Card style={{ padding: 16, marginBottom: 16 }}>
         <Text style={{ fontFamily: font.extrabold, fontSize: 18, color: c.text }}>{profile.name}</Text>
         <Text style={{ fontSize: 13, color: c.muted, marginTop: 8, fontFamily: font.regular }}>
-          ★ {profile.ratingAvg} · {profile.experienceYears}+ years experience
+          {t("companyProfile.yearsExperience", { rating: profile.ratingAvg, years: profile.experienceYears })}
         </Text>
         <Text style={{ fontSize: 13, color: c.muted, marginTop: 6, fontFamily: font.regular }}>
           {profile.city}, {profile.state}
         </Text>
         <Text style={{ fontSize: 13, color: c.muted, marginTop: 6, fontFamily: font.regular }}>
-          Machine Type: {profile.machineType}
+          {t("companyProfile.machineType", { type: profile.machineType })}
         </Text>
         <Text style={{ fontSize: 13, color: c.muted, marginTop: 6, fontFamily: font.regular }}>
-          Registration No: {profile.registrationNumber || "—"}
+          {t("companyProfile.registrationNo", { no: profile.registrationNumber || "—" })}
         </Text>
         <Text style={{ fontSize: 12, fontFamily: font.bold, color: c.muted, marginTop: 12, marginBottom: 6 }}>
-          SERVICE AREAS
+          {t("companyProfile.serviceAreas")}
         </Text>
         <View style={{ flexDirection: "row", gap: 6, flexWrap: "wrap" }}>
           {profile.serviceAreas.map((a) => (
@@ -433,11 +442,11 @@ export function CompanyProfileView({ navigation, route }: NativeStackScreenProps
       </Card>
 
       <Text style={{ fontSize: 12, fontFamily: font.bold, color: c.muted, marginBottom: 8 }}>
-        VEHICLE &amp; MACHINE PHOTOS
+        {t("companyProfile.vehiclePhotos")}
       </Text>
       {profile.vehiclePhotos.length === 0 ? (
         <Text style={{ fontSize: 13, color: c.mutedLight, marginBottom: 20, fontFamily: font.regular }}>
-          No photos yet.
+          {t("common.noPhotosYet")}
         </Text>
       ) : (
         <View style={{ flexDirection: "row", gap: 10, marginBottom: 20 }}>
@@ -448,10 +457,10 @@ export function CompanyProfileView({ navigation, route }: NativeStackScreenProps
       )}
 
       <Text style={{ fontSize: 12, fontFamily: font.bold, color: c.muted, marginBottom: 8 }}>
-        BOREWELL WORK PHOTOS
+        {t("companyProfile.borewellPhotos")}
       </Text>
       {profile.borewellPhotos.length === 0 ? (
-        <Text style={{ fontSize: 13, color: c.mutedLight, fontFamily: font.regular }}>No photos yet.</Text>
+        <Text style={{ fontSize: 13, color: c.mutedLight, fontFamily: font.regular }}>{t("common.noPhotosYet")}</Text>
       ) : (
         <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 10 }}>
           {profile.borewellPhotos.map((photo) => (
