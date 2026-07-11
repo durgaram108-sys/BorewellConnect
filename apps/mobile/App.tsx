@@ -17,7 +17,7 @@ import type { CustomerStackParams, OwnerStackParams, RootStackParams } from "./s
 import { RoleSelect } from "./src/screens/RoleSelect";
 import { CustomerLogin, CustomerOtp, CompleteProfile } from "./src/screens/customer/AuthScreens";
 import { CustomerHome, NewRequest, SelectLocation } from "./src/screens/customer/RequestScreens";
-import { Quotations, QuoteDetail, BookingConfirm, Payment } from "./src/screens/customer/QuoteScreens";
+import { Quotations, QuoteDetail, BookingConfirm, Payment, CompanyProfileView } from "./src/screens/customer/QuoteScreens";
 import {
   Tracking,
   JobDetails,
@@ -56,6 +56,7 @@ function CustomerFlow() {
       <CustomerStack.Screen name="SelectLocation" component={SelectLocation} />
       <CustomerStack.Screen name="Quotations" component={Quotations} />
       <CustomerStack.Screen name="QuoteDetail" component={QuoteDetail} />
+      <CustomerStack.Screen name="CompanyProfile" component={CompanyProfileView} />
       <CustomerStack.Screen name="BookingConfirm" component={BookingConfirm} />
       <CustomerStack.Screen name="Payment" component={Payment} />
       <CustomerStack.Screen name="Tracking" component={Tracking} />

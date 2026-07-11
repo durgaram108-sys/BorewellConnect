@@ -1,20 +1,30 @@
-import React, { useCallback, useState } from "react";
-import { Image, Pressable, ScrollView, Text, TextInput, View } from "react-native";
+import React, { useEffect, useRef, useState } from "react";
+import { Image, Pressable, RefreshControl, ScrollView, Text, TextInput, View } from "react-native";
 import { NativeStackScreenProps } from "@react-navigation/native-stack";
-import { useFocusEffect } from "@react-navigation/native";
 import { Controller, useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import * as ImagePicker from "expo-image-picker";
-import { api, CompanyProfile, Lead, OwnerJob, setOwnerToken } from "../../api";
+import { Feather } from "@expo/vector-icons";
+import { api, setOwnerToken } from "../../api";
 import { c, font, inr, statusColor, statusLabel } from "../../theme";
-import { Card, Field, FieldLabel, LoadingScreen, PrimaryButton, ErrorText, ScreenTitle } from "../../components/ui";
+import {
+  Card,
+  Field,
+  FieldLabel,
+  PrimaryButton,
+  ErrorText,
+  ScreenTitle,
+  SkeletonDetail,
+  SkeletonList,
+} from "../../components/ui";
 import { MultiSelectField, SelectField } from "../../components/Picker";
 import { RateCardField } from "../../components/RateCardField";
 import { CalendarField } from "../../components/CalendarField";
 import { showToast } from "../../components/Toast";
 import { ALL_DISTRICTS, DISTRICTS_BY_STATE, INDIA_STATES } from "../../data/indiaLocations";
 import { bandsNeededForDepth, MAX_DEPTH_FT } from "../../utils/pricing";
+import { useFetch } from "../../hooks/useFetch";
 import type { OwnerStackParams } from "../../navigation";
 
 const editProfileSchema = z.object({
@@ -27,6 +37,10 @@ const editProfileSchema = z.object({
   registrationNumber: z.string().optional(),
   serviceAreas: z.array(z.string()).min(1, "Select at least one service area"),
   machineType: z.string().min(1, "Enter machine type"),
+  maxDepthFt: z
+    .string()
+    .refine((v) => v.trim() !== "" && !isNaN(Number(v)) && Number(v) > 0, "Enter your maximum drilling depth")
+    .refine((v) => Number(v) <= MAX_DEPTH_FT, `Max depth is ${MAX_DEPTH_FT} ft`),
   casingRate: z.string().refine((v) => v.trim() !== "" && !isNaN(Number(v)) && Number(v) > 0, "Enter a valid amount"),
   estimatedCompletion: z.string().min(1, "Enter an estimated completion time"),
 });
@@ -185,30 +199,31 @@ export function OwnerOtp({ navigation, route }: NativeStackScreenProps<OwnerStac
 }
 
 export function OwnerDashboard({ navigation }: NativeStackScreenProps<OwnerStackParams, "OwnerDashboard">) {
-  const [profile, setProfile] = useState<CompanyProfile | null>(null);
-  const [leadCount, setLeadCount] = useState(0);
-  const [jobCount, setJobCount] = useState(0);
-  const [earnings, setEarnings] = useState(0);
-
-  useFocusEffect(
-    useCallback(() => {
-      api.profile().then(setProfile).catch(console.error);
-      api.leads().then((l) => setLeadCount(l.length)).catch(console.error);
-      api
-        .jobs()
-        .then((j) => setJobCount(j.filter((x) => x.status !== "COMPLETED" && x.status !== "CANCELLED").length))
-        .catch(console.error);
-      api.earnings().then((e) => setEarnings(e.thisMonth)).catch(console.error);
-    }, [])
+  const { data, loading, refreshing, refresh } = useFetch(
+    () =>
+      Promise.all([api.profile(), api.leads(), api.jobs(), api.earnings()]).then(([profile, leads, jobs, earnings]) => ({
+        profile,
+        leadCount: leads.length,
+        jobCount: jobs.filter((x) => x.status !== "COMPLETED" && x.status !== "CANCELLED").length,
+        earnings: earnings.thisMonth,
+      })),
+    []
   );
+  const profile = data?.profile ?? null;
+  const leadCount = data?.leadCount ?? 0;
+  const jobCount = data?.jobCount ?? 0;
+  const earnings = data?.earnings ?? 0;
 
   return (
-    <ScrollView style={{ flex: 1, backgroundColor: c.bg }} contentContainerStyle={{ paddingVertical: 16 }}>
+    <ScrollView
+      style={{ flex: 1, backgroundColor: c.bg }}
+      contentContainerStyle={{ padding: 20 }}
+      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={refresh} />}
+    >
       <View
         style={{
           backgroundColor: c.navy,
           borderRadius: 16,
-          marginHorizontal: 16,
           marginBottom: 18,
           padding: 20,
           flexDirection: "row",
@@ -228,29 +243,33 @@ export function OwnerDashboard({ navigation }: NativeStackScreenProps<OwnerStack
         />
       </View>
 
-      <View style={{ flexDirection: "row", gap: 12, marginHorizontal: 16, marginBottom: 18 }}>
-        <Card style={{ flex: 1 }}>
-          <Text style={{ fontSize: 22, fontFamily: font.extrabold, color: c.text }}>{leadCount}</Text>
-          <Text style={{ fontSize: 11, color: c.muted, marginTop: 2, fontFamily: font.regular }}>New Leads</Text>
-        </Card>
-        <Pressable style={{ flex: 1 }} onPress={() => navigation.navigate("ActiveJobs")}>
-          <Card>
-            <Text style={{ fontSize: 22, fontFamily: font.extrabold, color: c.text }}>{jobCount}</Text>
-            <Text style={{ fontSize: 11, color: c.muted, marginTop: 2, fontFamily: font.regular }}>Active Jobs</Text>
-          </Card>
-        </Pressable>
-      </View>
+      {loading ? (
+        <SkeletonList rows={2} />
+      ) : (
+        <>
+          <View style={{ flexDirection: "row", gap: 12, marginBottom: 18 }}>
+            <Card style={{ flex: 1 }}>
+              <Text style={{ fontSize: 22, fontFamily: font.extrabold, color: c.text }}>{leadCount}</Text>
+              <Text style={{ fontSize: 11, color: c.muted, marginTop: 2, fontFamily: font.regular }}>New Leads</Text>
+            </Card>
+            <Pressable style={{ flex: 1 }} onPress={() => navigation.navigate("ActiveJobs")}>
+              <Card>
+                <Text style={{ fontSize: 22, fontFamily: font.extrabold, color: c.text }}>{jobCount}</Text>
+                <Text style={{ fontSize: 11, color: c.muted, marginTop: 2, fontFamily: font.regular }}>Active Jobs</Text>
+              </Card>
+            </Pressable>
+          </View>
 
-      <Pressable onPress={() => navigation.navigate("Earnings")}>
-        <Card style={{ marginHorizontal: 16, marginBottom: 18 }}>
-          <Text style={{ fontSize: 11, color: c.muted, fontFamily: font.regular }}>EARNINGS THIS MONTH</Text>
-          <Text style={{ fontSize: 24, fontFamily: font.extrabold, color: c.green, marginTop: 4 }}>{inr(earnings)}</Text>
-        </Card>
-      </Pressable>
+          <Pressable onPress={() => navigation.navigate("Earnings")}>
+            <Card style={{ marginBottom: 18 }}>
+              <Text style={{ fontSize: 11, color: c.muted, fontFamily: font.regular }}>EARNINGS THIS MONTH</Text>
+              <Text style={{ fontSize: 24, fontFamily: font.extrabold, color: c.green, marginTop: 4 }}>{inr(earnings)}</Text>
+            </Card>
+          </Pressable>
 
-      <View style={{ marginHorizontal: 16 }}>
-        <PrimaryButton title="View New Leads" onPress={() => navigation.navigate("NewLeads")} />
-      </View>
+          <PrimaryButton title="View New Leads" onPress={() => navigation.navigate("NewLeads")} />
+        </>
+      )}
     </ScrollView>
   );
 }
@@ -259,98 +278,116 @@ const fmtDate = (iso: string) =>
   new Date(iso).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" });
 
 export function NewLeads({ navigation }: NativeStackScreenProps<OwnerStackParams, "NewLeads">) {
-  const [leads, setLeads] = useState<Lead[]>([]);
-
-  useFocusEffect(
-    useCallback(() => {
-      api.leads().then(setLeads).catch(console.error);
-    }, [])
-  );
+  const { data, loading, refreshing, refresh } = useFetch(() => api.leads(), []);
+  const leads = data ?? [];
 
   return (
-    <ScrollView style={{ flex: 1, backgroundColor: c.bg }} contentContainerStyle={{ padding: 20 }}>
+    <ScrollView
+      style={{ flex: 1, backgroundColor: c.bg }}
+      contentContainerStyle={{ padding: 20 }}
+      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={refresh} />}
+    >
       <ScreenTitle title="Matched Requests" onBack={() => navigation.goBack()} />
       <Text style={{ fontSize: 12, color: c.mutedLight, marginTop: -8, marginBottom: 16, fontFamily: font.regular }}>
         A quote is sent automatically using your saved rates — no action needed.
       </Text>
-      {leads.length === 0 && (
-        <Text style={{ fontSize: 13, color: c.muted, fontFamily: font.regular }}>
-          No matched requests yet — make sure your service areas, pricing, and available dates are up to date.
-        </Text>
+      {loading ? (
+        <SkeletonList />
+      ) : (
+        <>
+          {leads.length === 0 && (
+            <Text style={{ fontSize: 13, color: c.muted, fontFamily: font.regular }}>
+              No matched requests yet — make sure your service areas, pricing, and available dates are up to date.
+            </Text>
+          )}
+          {leads.map((l) => (
+            <Card key={l.id} style={{ padding: 16, marginBottom: 14 }}>
+              <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start" }}>
+                <Text style={{ fontSize: 16, fontFamily: font.extrabold, color: c.text }}>{l.code}</Text>
+                <Text style={{ fontSize: 15, fontFamily: font.extrabold, color: c.green }}>{inr(l.totalPrice)}</Text>
+              </View>
+              <Text style={{ fontSize: 13, color: c.muted, marginTop: 8, fontFamily: font.regular }}>
+                📍 {l.district}, {l.state}, {l.country}
+              </Text>
+              <Text style={{ fontSize: 13, color: c.muted, marginTop: 6, fontFamily: font.regular }}>
+                Land Type: {l.landType}
+              </Text>
+              <Text style={{ fontSize: 13, color: c.muted, marginTop: 6, fontFamily: font.regular }}>
+                Expected Depth: {l.depthFt} ft
+              </Text>
+              <Text style={{ fontSize: 13, color: c.muted, marginTop: 6, fontFamily: font.regular }}>
+                Preferred Date: {fmtDate(l.preferredDate)}
+              </Text>
+            </Card>
+          ))}
+          <Text style={{ fontSize: 12, color: c.mutedLight, fontStyle: "italic", marginTop: 4, fontFamily: font.regular }}>
+            Customer contact details are shared only after you're selected.
+          </Text>
+        </>
       )}
-      {leads.map((l) => (
-        <Card key={l.id} style={{ padding: 16, marginBottom: 14 }}>
-          <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start" }}>
-            <Text style={{ fontSize: 16, fontFamily: font.extrabold, color: c.text }}>{l.code}</Text>
-            <Text style={{ fontSize: 15, fontFamily: font.extrabold, color: c.green }}>{inr(l.totalPrice)}</Text>
-          </View>
-          <Text style={{ fontSize: 13, color: c.muted, marginTop: 8, fontFamily: font.regular }}>
-            📍 {l.district}, {l.state}, {l.country}
-          </Text>
-          <Text style={{ fontSize: 13, color: c.muted, marginTop: 6, fontFamily: font.regular }}>Land Type: {l.landType}</Text>
-          <Text style={{ fontSize: 13, color: c.muted, marginTop: 6, fontFamily: font.regular }}>
-            Expected Depth: {l.depthFt} ft
-          </Text>
-          <Text style={{ fontSize: 13, color: c.muted, marginTop: 6, fontFamily: font.regular }}>
-            Preferred Date: {fmtDate(l.preferredDate)}
-          </Text>
-        </Card>
-      ))}
-      <Text style={{ fontSize: 12, color: c.mutedLight, fontStyle: "italic", marginTop: 4, fontFamily: font.regular }}>
-        Customer contact details are shared only after you're selected.
-      </Text>
     </ScrollView>
   );
 }
 
 export function ActiveJobs({ navigation }: NativeStackScreenProps<OwnerStackParams, "ActiveJobs">) {
-  const [jobs, setJobs] = useState<OwnerJob[]>([]);
-
-  useFocusEffect(
-    useCallback(() => {
-      api.jobs().then(setJobs).catch(console.error);
-    }, [])
-  );
+  const { data, loading, refreshing, refresh } = useFetch(() => api.jobs(), []);
+  const jobs = data ?? [];
 
   return (
-    <ScrollView style={{ flex: 1, backgroundColor: c.bg }} contentContainerStyle={{ padding: 20 }}>
+    <ScrollView
+      style={{ flex: 1, backgroundColor: c.bg }}
+      contentContainerStyle={{ padding: 20 }}
+      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={refresh} />}
+    >
       <ScreenTitle title="Active Jobs" onBack={() => navigation.goBack()} />
-      {jobs.length === 0 && (
-        <Text style={{ fontSize: 13, color: c.muted, fontFamily: font.regular }}>
-          No jobs yet — you'll see bookings here once a customer selects your quote.
-        </Text>
+      {loading ? (
+        <SkeletonList />
+      ) : (
+        <>
+          {jobs.length === 0 && (
+            <Text style={{ fontSize: 13, color: c.muted, fontFamily: font.regular }}>
+              No jobs yet — you'll see bookings here once a customer selects your quote.
+            </Text>
+          )}
+          {jobs.map((j) => (
+            <Pressable key={j.id} onPress={() => navigation.navigate("JobUpdate", { jobId: j.id })}>
+              <Card
+                style={{
+                  flexDirection: "row",
+                  justifyContent: "space-between",
+                  alignItems: "center",
+                  marginBottom: 12,
+                }}
+              >
+                <Text style={{ fontFamily: font.bold, fontSize: 14, color: c.text }}>{j.code}</Text>
+                <Text style={{ fontSize: 12, fontFamily: font.bold, color: statusColor(j.status) }}>
+                  {statusLabel(j.status)}
+                </Text>
+              </Card>
+            </Pressable>
+          ))}
+        </>
       )}
-      {jobs.map((j) => (
-        <Pressable key={j.id} onPress={() => navigation.navigate("JobUpdate", { jobId: j.id })}>
-          <Card
-            style={{
-              flexDirection: "row",
-              justifyContent: "space-between",
-              alignItems: "center",
-              marginBottom: 12,
-            }}
-          >
-            <Text style={{ fontFamily: font.bold, fontSize: 14, color: c.text }}>{j.code}</Text>
-            <Text style={{ fontSize: 12, fontFamily: font.bold, color: statusColor(j.status) }}>{statusLabel(j.status)}</Text>
-          </Card>
-        </Pressable>
-      ))}
     </ScrollView>
   );
 }
 
 export function JobUpdate({ navigation, route }: NativeStackScreenProps<OwnerStackParams, "JobUpdate">) {
   const { jobId } = route.params;
-  const [job, setJob] = useState<OwnerJob | null>(null);
   const [busy, setBusy] = useState(false);
+  const { data: job, loading, refreshing, refresh } = useFetch(
+    () => api.jobs().then((all) => all.find((j) => j.id === jobId) ?? null),
+    [jobId]
+  );
 
-  const load = useCallback(() => {
-    api.jobs().then((all) => setJob(all.find((j) => j.id === jobId) ?? null)).catch(console.error);
-  }, [jobId]);
-
-  useFocusEffect(load);
-
-  if (!job) return <LoadingScreen />;
+  if (loading || !job) {
+    return (
+      <ScrollView style={{ flex: 1, backgroundColor: c.bg }} contentContainerStyle={{ padding: 20 }}>
+        <ScreenTitle title="Job" onBack={() => navigation.goBack()} />
+        <SkeletonDetail />
+      </ScrollView>
+    );
+  }
 
   const next = job.milestones.find((m) => !m.completedAt);
 
@@ -358,7 +395,7 @@ export function JobUpdate({ navigation, route }: NativeStackScreenProps<OwnerSta
     setBusy(true);
     try {
       await api.advanceMilestone(job.id);
-      load();
+      refresh();
     } catch (e) {
       console.error(e);
     } finally {
@@ -367,7 +404,11 @@ export function JobUpdate({ navigation, route }: NativeStackScreenProps<OwnerSta
   };
 
   return (
-    <ScrollView style={{ flex: 1, backgroundColor: c.bg }} contentContainerStyle={{ padding: 20 }}>
+    <ScrollView
+      style={{ flex: 1, backgroundColor: c.bg }}
+      contentContainerStyle={{ padding: 20 }}
+      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={refresh} />}
+    >
       <ScreenTitle title={`Job — ${job.code}`} onBack={() => navigation.goBack()} />
       <Text style={{ fontSize: 13, color: c.muted, marginBottom: 18, fontFamily: font.regular }}>
         {job.customerName ?? "Customer"} {job.customerPhone ? `· ${job.customerPhone}` : "· contact shared after payment"}
@@ -393,21 +434,28 @@ export function JobUpdate({ navigation, route }: NativeStackScreenProps<OwnerSta
 }
 
 export function Earnings({ navigation }: NativeStackScreenProps<OwnerStackParams, "Earnings">) {
-  const [data, setData] = useState<{ thisMonth: number; recentPayouts: { code: string; amount: number }[] } | null>(null);
-
-  useFocusEffect(
-    useCallback(() => {
-      api.earnings().then(setData).catch(console.error);
-    }, [])
-  );
+  const { data, loading, refreshing, refresh } = useFetch(() => api.earnings(), []);
 
   // Bars reflect the most recent payouts (oldest → newest), scaled to the largest.
   const payouts = data?.recentPayouts ?? [];
   const barAmounts = payouts.slice(0, 6).reverse().map((p) => p.amount);
   const maxBar = Math.max(1, ...barAmounts);
 
+  if (loading) {
+    return (
+      <ScrollView style={{ flex: 1, backgroundColor: c.bg }} contentContainerStyle={{ padding: 20 }}>
+        <ScreenTitle title="Earnings" onBack={() => navigation.goBack()} />
+        <SkeletonDetail />
+      </ScrollView>
+    );
+  }
+
   return (
-    <ScrollView style={{ flex: 1, backgroundColor: c.bg }} contentContainerStyle={{ padding: 20 }}>
+    <ScrollView
+      style={{ flex: 1, backgroundColor: c.bg }}
+      contentContainerStyle={{ padding: 20 }}
+      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={refresh} />}
+    >
       <ScreenTitle title="Earnings" onBack={() => navigation.goBack()} />
       <Text style={{ fontSize: 28, fontFamily: font.extrabold, color: c.green }}>{inr(data?.thisMonth ?? 0)}</Text>
       <Text style={{ fontSize: 12, color: c.muted, marginBottom: 20, fontFamily: font.regular }}>This month</Text>
@@ -457,13 +505,7 @@ const PHOTO_SLOTS = [
 ] as const;
 
 export function OwnerProfile({ navigation }: NativeStackScreenProps<OwnerStackParams, "OwnerProfile">) {
-  const [profile, setProfile] = useState<CompanyProfile | null>(null);
-
-  useFocusEffect(
-    useCallback(() => {
-      api.profile().then(setProfile).catch(console.error);
-    }, [])
-  );
+  const { data: profile, loading, refreshing, refresh } = useFetch(() => api.profile(), []);
 
   const pick = async (slot: string) => {
     const result = await ImagePicker.launchImageLibraryAsync({
@@ -474,8 +516,7 @@ export function OwnerProfile({ navigation }: NativeStackScreenProps<OwnerStackPa
     if (result.canceled || !result.assets[0]?.base64) return;
     const dataUri = `data:image/jpeg;base64,${result.assets[0].base64}`;
     await api.uploadVehiclePhoto(slot, dataUri);
-    const fresh = await api.profile();
-    setProfile(fresh);
+    refresh();
     showToast("Photo updated");
   };
 
@@ -488,15 +529,13 @@ export function OwnerProfile({ navigation }: NativeStackScreenProps<OwnerStackPa
     if (result.canceled || !result.assets[0]?.base64) return;
     const dataUri = `data:image/jpeg;base64,${result.assets[0].base64}`;
     await api.addBorewellPhoto(dataUri);
-    const fresh = await api.profile();
-    setProfile(fresh);
+    refresh();
     showToast("Photo added");
   };
 
   const removeBorewellPhoto = async (id: string) => {
     await api.removeBorewellPhoto(id);
-    const fresh = await api.profile();
-    setProfile(fresh);
+    refresh();
     showToast("Photo removed");
   };
 
@@ -505,10 +544,21 @@ export function OwnerProfile({ navigation }: NativeStackScreenProps<OwnerStackPa
     navigation.getParent()?.reset({ index: 0, routes: [{ name: "RoleSelect" }] });
   };
 
-  if (!profile) return <LoadingScreen />;
+  if (loading || !profile) {
+    return (
+      <ScrollView style={{ flex: 1, backgroundColor: c.bg }} contentContainerStyle={{ padding: 20 }}>
+        <ScreenTitle title="Company Profile" onBack={() => navigation.goBack()} />
+        <SkeletonDetail />
+      </ScrollView>
+    );
+  }
 
   return (
-    <ScrollView style={{ flex: 1, backgroundColor: c.bg }} contentContainerStyle={{ padding: 20 }}>
+    <ScrollView
+      style={{ flex: 1, backgroundColor: c.bg }}
+      contentContainerStyle={{ padding: 20 }}
+      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={refresh} />}
+    >
       <ScreenTitle title="Company Profile" onBack={() => navigation.goBack()} />
       <Card style={{ padding: 16, marginBottom: 16 }}>
         <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
@@ -616,7 +666,7 @@ export function OwnerProfile({ navigation }: NativeStackScreenProps<OwnerStackPa
                 justifyContent: "center",
               }}
             >
-              <Text style={{ color: "#fff", fontSize: 13, fontFamily: font.bold, lineHeight: 14 }}>×</Text>
+              <Feather name="x" size={14} color="#fff" />
             </Pressable>
           </View>
         ))}
@@ -651,21 +701,20 @@ export function OwnerProfile({ navigation }: NativeStackScreenProps<OwnerStackPa
 const MAX_BAND_COUNT = bandsNeededForDepth(MAX_DEPTH_FT);
 
 export function EditProfile({ navigation }: NativeStackScreenProps<OwnerStackParams, "EditProfile">) {
-  const [profile, setProfile] = useState<CompanyProfile | null>(null);
+  const { data: profile, loading } = useFetch(() => api.profile(), []);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [rateCardInputs, setRateCardInputs] = useState<(number | undefined)[]>(Array(MAX_BAND_COUNT).fill(undefined));
   const [availableDates, setAvailableDates] = useState<Date[]>([]);
+  const initializedFor = useRef<string | null>(null);
 
-  useFocusEffect(
-    useCallback(() => {
-      api.profile().then((p) => {
-        setProfile(p);
-        setRateCardInputs(padRateCard(p.rateCard, MAX_BAND_COUNT));
-        setAvailableDates(p.availableDates.map((d) => new Date(d)));
-      }).catch(console.error);
-    }, [])
-  );
+  useEffect(() => {
+    if (profile && initializedFor.current !== profile.id) {
+      setRateCardInputs(padRateCard(profile.rateCard, MAX_BAND_COUNT));
+      setAvailableDates(profile.availableDates.map((d) => new Date(d)));
+      initializedFor.current = profile.id;
+    }
+  }, [profile]);
 
   const {
     control,
@@ -686,16 +735,31 @@ export function EditProfile({ navigation }: NativeStackScreenProps<OwnerStackPar
           registrationNumber: profile.registrationNumber,
           serviceAreas: profile.serviceAreas,
           machineType: profile.machineType,
+          maxDepthFt: profile.maxDepthFt ? String(profile.maxDepthFt) : "",
           casingRate: String(profile.casingRate),
           estimatedCompletion: profile.estimatedCompletion,
         }
       : undefined,
   });
   const selectedState = watch("state");
+  const maxDepthFt = watch("maxDepthFt");
+  const bandCount = Number(maxDepthFt) > 0 ? bandsNeededForDepth(Number(maxDepthFt)) : 0;
 
-  if (!profile) return <LoadingScreen />;
+  if (loading || !profile) {
+    return (
+      <ScrollView style={{ flex: 1, backgroundColor: c.bg }} contentContainerStyle={{ padding: 20 }}>
+        <ScreenTitle title="Edit Profile" onBack={() => navigation.goBack()} />
+        <SkeletonDetail />
+      </ScrollView>
+    );
+  }
 
   const save = async (data: EditProfileForm) => {
+    const trimmedRateCard = trimRateCard(rateCardInputs.slice(0, bandCount));
+    if (trimmedRateCard.length !== bandCount) {
+      setError(`Enter a rate for all ${bandCount} depth band${bandCount === 1 ? "" : "s"} up to your max depth`);
+      return;
+    }
     setBusy(true);
     setError("");
     try {
@@ -709,7 +773,8 @@ export function EditProfile({ navigation }: NativeStackScreenProps<OwnerStackPar
         registrationNumber: data.registrationNumber,
         serviceAreas: data.serviceAreas,
         machineType: data.machineType,
-        rateCard: trimRateCard(rateCardInputs),
+        maxDepthFt: Number(data.maxDepthFt),
+        rateCard: trimmedRateCard,
         casingRate: Number(data.casingRate),
         estimatedCompletion: data.estimatedCompletion,
         availableDates,
@@ -818,15 +883,31 @@ export function EditProfile({ navigation }: NativeStackScreenProps<OwnerStackPar
         render={({ field: { value, onChange } }) => <Field value={value} onChangeText={onChange} placeholder="e.g. 3–4 days" />}
       />
       <ErrorText>{errors.estimatedCompletion?.message}</ErrorText>
+      <FieldLabel>MAXIMUM DRILLING DEPTH (FT)</FieldLabel>
+      <Controller
+        control={control}
+        name="maxDepthFt"
+        render={({ field: { value, onChange } }) => (
+          <Field value={value} onChangeText={onChange} keyboardType="number-pad" placeholder="e.g. 600, 800, 1500" />
+        )}
+      />
+      <ErrorText>{errors.maxDepthFt?.message}</ErrorText>
+      <Text style={{ fontSize: 12, color: c.mutedLight, marginTop: -6, marginBottom: 14, fontFamily: font.regular }}>
+        Requests deeper than this are never sent to you.
+      </Text>
 
-      <Text style={{ fontSize: 15, fontFamily: font.extrabold, color: c.text, marginTop: 8, marginBottom: 4 }}>
-        Pricing (₹ per ft by depth)
-      </Text>
-      <Text style={{ fontSize: 12, color: c.muted, marginBottom: 14, fontFamily: font.regular }}>
-        Fill in rates from the top for however deep you drill — leave the rest blank. Quotes are generated
-        automatically for matching, available leads using these rates — no manual submission needed.
-      </Text>
-      <RateCardField values={rateCardInputs} onChange={setRateCardInputs} bandCount={MAX_BAND_COUNT} />
+      {bandCount > 0 && (
+        <>
+          <Text style={{ fontSize: 15, fontFamily: font.extrabold, color: c.text, marginTop: 8, marginBottom: 4 }}>
+            Pricing (₹ per ft by depth)
+          </Text>
+          <Text style={{ fontSize: 12, color: c.muted, marginBottom: 14, fontFamily: font.regular }}>
+            Set a rate for every 100ft band up to your max depth. Quotes are generated automatically for
+            matching, available leads using these rates — no manual submission needed.
+          </Text>
+          <RateCardField values={rateCardInputs} onChange={setRateCardInputs} bandCount={bandCount} />
+        </>
+      )}
 
       <FieldLabel>MACHINE &amp; CASING CHARGE (₹, FLAT)</FieldLabel>
       <Controller

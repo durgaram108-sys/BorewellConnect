@@ -1,15 +1,16 @@
 import React, { useCallback, useEffect, useState } from "react";
-import { Pressable, ScrollView, Text, View } from "react-native";
+import { Pressable, RefreshControl, ScrollView, Text, View } from "react-native";
 import { NativeStackScreenProps } from "@react-navigation/native-stack";
-import { useFocusEffect } from "@react-navigation/native";
 import { Controller, useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import * as Location from "expo-location";
+import { Feather } from "@expo/vector-icons";
 import { api, RequestRow, setCustomerToken } from "../../api";
 import { c, font } from "../../theme";
-import { Card, Field, FieldLabel, PrimaryButton, ErrorText, ScreenTitle } from "../../components/ui";
+import { Card, Field, FieldLabel, PrimaryButton, ErrorText, ScreenTitle, SkeletonList } from "../../components/ui";
 import { SelectField } from "../../components/Picker";
+import { useFetch } from "../../hooks/useFetch";
 import { CalendarField } from "../../components/CalendarField";
 import { SelectLocationMap } from "../../components/SelectLocationMap";
 import { DISTRICTS_BY_STATE, INDIA_STATES } from "../../data/indiaLocations";
@@ -34,15 +35,12 @@ const newRequestSchema = z.object({
 type NewRequestForm = z.infer<typeof newRequestSchema>;
 
 export function CustomerHome({ navigation }: NativeStackScreenProps<CustomerStackParams, "CustomerHome">) {
-  const [requests, setRequests] = useState<RequestRow[]>([]);
-  const [name, setName] = useState<string | null>(null);
-
-  useFocusEffect(
-    useCallback(() => {
-      api.myRequests().then(setRequests).catch(console.error);
-      api.customerProfile().then((p) => setName(p.name)).catch(console.error);
-    }, [])
+  const { data, loading, refreshing, refresh } = useFetch(
+    () => Promise.all([api.myRequests(), api.customerProfile()]).then(([requests, profile]) => ({ requests, name: profile.name })),
+    []
   );
+  const requests = data?.requests ?? [];
+  const name = data?.name ?? null;
 
   const logout = async () => {
     await setCustomerToken(null);
@@ -50,8 +48,12 @@ export function CustomerHome({ navigation }: NativeStackScreenProps<CustomerStac
   };
 
   return (
-    <ScrollView style={{ flex: 1, backgroundColor: c.bg }} contentContainerStyle={{ paddingVertical: 16 }}>
-      <View style={{ backgroundColor: c.navy, borderRadius: 16, marginHorizontal: 16, marginBottom: 20, padding: 20 }}>
+    <ScrollView
+      style={{ flex: 1, backgroundColor: c.bg }}
+      contentContainerStyle={{ padding: 20 }}
+      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={refresh} />}
+    >
+      <View style={{ backgroundColor: c.navy, borderRadius: 16, marginBottom: 20, padding: 20 }}>
         <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start" }}>
           <View style={{ flex: 1 }}>
             <Text style={{ color: "#fff", fontSize: 19, fontFamily: font.extrabold }}>Hello{name ? `, ${name}` : ""}!</Text>
@@ -70,7 +72,7 @@ export function CustomerHome({ navigation }: NativeStackScreenProps<CustomerStac
               justifyContent: "center",
             }}
           >
-            <Text style={{ color: "#fff", fontSize: 15 }}>⚙</Text>
+            <Feather name="settings" size={16} color="#fff" />
           </Pressable>
         </View>
         <Pressable
@@ -93,7 +95,6 @@ export function CustomerHome({ navigation }: NativeStackScreenProps<CustomerStac
           flexDirection: "row",
           justifyContent: "space-between",
           alignItems: "center",
-          marginHorizontal: 16,
           marginBottom: 10,
         }}
       >
@@ -103,37 +104,39 @@ export function CustomerHome({ navigation }: NativeStackScreenProps<CustomerStac
         </Pressable>
       </View>
 
-      {requests.length === 0 && (
-        <Text style={{ marginHorizontal: 16, fontSize: 13, color: c.muted, fontFamily: font.regular }}>
-          No requests yet — create your first request above.
-        </Text>
-      )}
-      {requests.map((r) => (
-        <Pressable
-          key={r.id}
-          onPress={() => navigation.navigate("Quotations", { requestId: r.id, code: r.code })}
-        >
-          <Card
-            style={{
-              flexDirection: "row",
-              justifyContent: "space-between",
-              alignItems: "center",
-              marginHorizontal: 16,
-              marginBottom: 12,
-            }}
-          >
-            <View>
-              <Text style={{ fontFamily: font.bold, fontSize: 14, color: c.text }}>{r.code}</Text>
-              <Text style={{ fontSize: 12, color: c.muted, marginTop: 2, fontFamily: font.regular }}>
-                {r.mandal}, {r.district}
-              </Text>
-            </View>
-            <Text style={{ fontSize: 12, fontFamily: font.bold, color: c.green }}>
-              {r.quoteCount} Quotation{r.quoteCount === 1 ? "" : "s"} →
+      {loading ? (
+        <SkeletonList rows={2} />
+      ) : (
+        <>
+          {requests.length === 0 && (
+            <Text style={{ fontSize: 13, color: c.muted, fontFamily: font.regular }}>
+              No requests yet — create your first request above.
             </Text>
-          </Card>
-        </Pressable>
-      ))}
+          )}
+          {requests.map((r) => (
+            <Pressable key={r.id} onPress={() => navigation.navigate("Quotations", { requestId: r.id, code: r.code })}>
+              <Card
+                style={{
+                  flexDirection: "row",
+                  justifyContent: "space-between",
+                  alignItems: "center",
+                  marginBottom: 12,
+                }}
+              >
+                <View>
+                  <Text style={{ fontFamily: font.bold, fontSize: 14, color: c.text }}>{r.code}</Text>
+                  <Text style={{ fontSize: 12, color: c.muted, marginTop: 2, fontFamily: font.regular }}>
+                    {r.mandal}, {r.district}
+                  </Text>
+                </View>
+                <Text style={{ fontSize: 12, fontFamily: font.bold, color: c.green }}>
+                  {r.quoteCount} Quotation{r.quoteCount === 1 ? "" : "s"} →
+                </Text>
+              </Card>
+            </Pressable>
+          ))}
+        </>
+      )}
 
       <Pressable onPress={logout} style={{ marginTop: 20, alignItems: "center" }}>
         <Text style={{ fontSize: 13, fontFamily: font.bold, color: c.danger }}>Log Out</Text>

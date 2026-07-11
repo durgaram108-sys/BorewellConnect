@@ -46,6 +46,7 @@ async function req<T>(path: string, init?: RequestInit, role?: "customer" | "own
 
 export interface RankedQuote {
   id: string;
+  companyId: string;
   companyName: string;
   bandRates: number[];
   totalPrice: number;
@@ -142,11 +143,26 @@ export interface CompanyProfile {
   registrationNumber: string;
   serviceAreas: string[];
   machineType: string;
+  maxDepthFt: number;
   rateCard: number[];
   casingRate: number;
   estimatedCompletion: string;
   availableDates: string[];
   status: "PENDING" | "VERIFIED";
+  vehiclePhotos: { slot: string; url: string }[];
+  borewellPhotos: { id: string; url: string }[];
+}
+
+export interface CompanyPublicProfile {
+  id: string;
+  name: string;
+  city: string;
+  state: string;
+  experienceYears: number;
+  machineType: string;
+  registrationNumber: string;
+  ratingAvg: number;
+  serviceAreas: string[];
   vehiclePhotos: { slot: string; url: string }[];
   borewellPhotos: { id: string; url: string }[];
 }
@@ -178,6 +194,7 @@ export const api = {
     req<RequestRow>("/customer/requests", { method: "POST", body: JSON.stringify(data) }, "customer"),
   myRequests: () => req<RequestRow[]>("/customer/requests", {}, "customer"),
   quotesFor: (requestId: string) => req<RankedQuote[]>(`/customer/requests/${requestId}/quotes`, {}, "customer"),
+  companyProfile: (companyId: string) => req<CompanyPublicProfile>(`/customer/companies/${companyId}`, {}, "customer"),
   book: (quoteId: string) =>
     req<{ id: string; code: string }>(`/customer/quotes/${quoteId}/book`, { method: "POST" }, "customer"),
   payOrder: (bookingId: string) =>

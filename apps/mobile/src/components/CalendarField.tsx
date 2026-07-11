@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import { Modal, Pressable, Text, View } from "react-native";
+import { Feather } from "@expo/vector-icons";
 import { c, font } from "../theme";
 
 const MONTHS_AHEAD = 6;
@@ -161,7 +162,7 @@ export function CalendarField(props: CalendarFieldProps) {
         <Text style={{ fontSize: 14, fontFamily: font.regular, color: selectedDates.length ? c.text : c.mutedLight }}>
           {summary}
         </Text>
-        <Text style={{ color: c.muted, fontSize: 12 }}>📅</Text>
+        <Feather name="calendar" size={16} color={c.muted} />
       </Pressable>
 
       {props.mode === "multi" && props.value.length > 0 && (
@@ -184,7 +185,7 @@ export function CalendarField(props: CalendarFieldProps) {
                 }}
               >
                 <Text style={{ fontSize: 12, fontFamily: font.semibold, color: c.text }}>{fmtShort(d)}</Text>
-                <Text style={{ fontSize: 12, color: c.muted }}>×</Text>
+                <Feather name="x" size={12} color={c.muted} />
               </Pressable>
             ))}
         </View>

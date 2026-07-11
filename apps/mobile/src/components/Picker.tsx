@@ -1,5 +1,6 @@
 import React, { useMemo, useState } from "react";
 import { FlatList, Modal, Pressable, Text, TextInput, View } from "react-native";
+import { Feather } from "@expo/vector-icons";
 import { c, font } from "../theme";
 
 const triggerStyle = {
@@ -84,7 +85,7 @@ function PickerModal({
                   }}
                 >
                   <Text style={{ fontSize: 14, fontFamily: font.regular, color: c.text }}>{item}</Text>
-                  {selected && <Text style={{ color: c.green, fontFamily: font.bold }}>✓</Text>}
+                  {selected && <Feather name="check" size={16} color={c.green} />}
                 </Pressable>
               );
             }}
@@ -132,7 +133,7 @@ export function SelectField({
         >
           {value || (disabled && disabledMessage ? disabledMessage : placeholder)}
         </Text>
-        <Text style={{ color: c.muted, fontSize: 12 }}>▼</Text>
+        <Feather name="chevron-down" size={16} color={c.muted} />
       </Pressable>
       <PickerModal
         visible={open}
@@ -181,7 +182,7 @@ export function MultiSelectField({
         <Text style={{ fontSize: 14, fontFamily: font.regular, color: selected.length ? c.text : c.mutedLight }}>
           {selected.length ? `${selected.length} selected` : placeholder}
         </Text>
-        <Text style={{ color: c.muted, fontSize: 12 }}>▼</Text>
+        <Feather name="chevron-down" size={16} color={c.muted} />
       </Pressable>
 
       {selected.length > 0 && (
@@ -201,7 +202,7 @@ export function MultiSelectField({
               }}
             >
               <Text style={{ fontSize: 12, fontFamily: font.semibold, color: c.text }}>{v}</Text>
-              <Text style={{ fontSize: 12, color: c.muted }}>×</Text>
+              <Feather name="x" size={12} color={c.muted} />
             </Pressable>
           ))}
         </View>

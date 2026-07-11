@@ -1,29 +1,39 @@
-import React, { useCallback, useState } from "react";
-import { Pressable, ScrollView, Text, TextInput, View } from "react-native";
+import React, { useState } from "react";
+import { Pressable, RefreshControl, ScrollView, Text, TextInput, View } from "react-native";
 import { NativeStackScreenProps } from "@react-navigation/native-stack";
-import { useFocusEffect } from "@react-navigation/native";
 import Svg, { Path } from "react-native-svg";
-import { api, BookingDetail } from "../../api";
+import { api } from "../../api";
 import { c, font, inr, statusColor, statusLabel } from "../../theme";
-import { Card, LoadingScreen, PrimaryButton, ErrorText, ScreenTitle, StripedPlaceholder } from "../../components/ui";
+import {
+  Card,
+  PrimaryButton,
+  ErrorText,
+  ScreenTitle,
+  SkeletonDetail,
+  SkeletonList,
+  StripedPlaceholder,
+} from "../../components/ui";
+import { useFetch } from "../../hooks/useFetch";
 import type { CustomerStackParams } from "../../navigation";
 
 function useBooking(bookingId: string) {
-  const [booking, setBooking] = useState<BookingDetail | null>(null);
-  useFocusEffect(
-    useCallback(() => {
-      api.booking(bookingId).then(setBooking).catch(console.error);
-    }, [bookingId])
-  );
-  return booking;
+  return useFetch(() => api.booking(bookingId), [bookingId]);
 }
 
 const fmtTime = (iso: string) =>
   new Date(iso).toLocaleString("en-IN", { day: "numeric", month: "short", year: "numeric", hour: "numeric", minute: "2-digit" });
 
 export function Tracking({ navigation, route }: NativeStackScreenProps<CustomerStackParams, "Tracking">) {
-  const booking = useBooking(route.params.bookingId);
-  if (!booking) return <LoadingScreen />;
+  const { data: booking, loading, refreshing, refresh } = useBooking(route.params.bookingId);
+
+  if (loading || !booking) {
+    return (
+      <ScrollView style={{ flex: 1, backgroundColor: c.bg }} contentContainerStyle={{ padding: 20 }}>
+        <ScreenTitle title="Job Tracking" onBack={() => navigation.goBack()} />
+        <SkeletonDetail />
+      </ScrollView>
+    );
+  }
 
   const rows: { label: string; time?: string; state: "done" | "current" | "todo" }[] = [
     { label: "Booking Confirmed", time: fmtTime(booking.milestones[0]?.completedAt ?? new Date().toISOString()), state: "done" },
@@ -36,7 +46,11 @@ export function Tracking({ navigation, route }: NativeStackScreenProps<CustomerS
   ];
 
   return (
-    <ScrollView style={{ flex: 1, backgroundColor: c.bg }} contentContainerStyle={{ padding: 20 }}>
+    <ScrollView
+      style={{ flex: 1, backgroundColor: c.bg }}
+      contentContainerStyle={{ padding: 20 }}
+      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={refresh} />}
+    >
       <ScreenTitle title="Job Tracking" onBack={() => navigation.goBack()} />
       <View style={{ gap: 18 }}>
         {rows.map((r) => (
@@ -76,11 +90,23 @@ export function Tracking({ navigation, route }: NativeStackScreenProps<CustomerS
 }
 
 export function JobDetails({ navigation, route }: NativeStackScreenProps<CustomerStackParams, "JobDetails">) {
-  const booking = useBooking(route.params.bookingId);
-  if (!booking) return <LoadingScreen />;
+  const { data: booking, loading, refreshing, refresh } = useBooking(route.params.bookingId);
+
+  if (loading || !booking) {
+    return (
+      <ScrollView style={{ flex: 1, backgroundColor: c.bg }} contentContainerStyle={{ padding: 20 }}>
+        <ScreenTitle title="Job Details" onBack={() => navigation.goBack()} />
+        <SkeletonDetail />
+      </ScrollView>
+    );
+  }
 
   return (
-    <ScrollView style={{ flex: 1, backgroundColor: c.bg }} contentContainerStyle={{ padding: 20 }}>
+    <ScrollView
+      style={{ flex: 1, backgroundColor: c.bg }}
+      contentContainerStyle={{ padding: 20 }}
+      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={refresh} />}
+    >
       <ScreenTitle title="Job Details" onBack={() => navigation.goBack()} />
       <Card style={{ marginBottom: 14, padding: 16 }}>
         <Text style={{ fontFamily: font.extrabold, fontSize: 16, color: c.text }}>{booking.company.name}</Text>
@@ -104,11 +130,23 @@ export function JobDetails({ navigation, route }: NativeStackScreenProps<Custome
 }
 
 export function WorkUpdates({ navigation, route }: NativeStackScreenProps<CustomerStackParams, "WorkUpdates">) {
-  const booking = useBooking(route.params.bookingId);
-  if (!booking) return <LoadingScreen />;
+  const { data: booking, loading, refreshing, refresh } = useBooking(route.params.bookingId);
+
+  if (loading || !booking) {
+    return (
+      <ScrollView style={{ flex: 1, backgroundColor: c.bg }} contentContainerStyle={{ padding: 20 }}>
+        <ScreenTitle title="Work Updates" onBack={() => navigation.goBack()} />
+        <SkeletonList rows={2} />
+      </ScrollView>
+    );
+  }
 
   return (
-    <ScrollView style={{ flex: 1, backgroundColor: c.bg }} contentContainerStyle={{ padding: 20 }}>
+    <ScrollView
+      style={{ flex: 1, backgroundColor: c.bg }}
+      contentContainerStyle={{ padding: 20 }}
+      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={refresh} />}
+    >
       <ScreenTitle title="Work Updates" onBack={() => navigation.goBack()} />
       {booking.workUpdates.length === 0 && (
         <Text style={{ fontSize: 13, color: c.muted, fontFamily: font.regular }}>No updates yet.</Text>
@@ -136,12 +174,24 @@ export function WorkUpdates({ navigation, route }: NativeStackScreenProps<Custom
 }
 
 export function InvoiceScreen({ navigation, route }: NativeStackScreenProps<CustomerStackParams, "Invoice">) {
-  const booking = useBooking(route.params.bookingId);
-  if (!booking?.invoice) return <LoadingScreen />;
+  const { data: booking, loading, refreshing, refresh } = useBooking(route.params.bookingId);
+
+  if (loading || !booking?.invoice) {
+    return (
+      <ScrollView style={{ flex: 1, backgroundColor: c.bg }} contentContainerStyle={{ padding: 20 }}>
+        <ScreenTitle title="Invoice" onBack={() => navigation.goBack()} />
+        <SkeletonDetail />
+      </ScrollView>
+    );
+  }
   const inv = booking.invoice;
 
   return (
-    <ScrollView style={{ flex: 1, backgroundColor: c.bg }} contentContainerStyle={{ padding: 20 }}>
+    <ScrollView
+      style={{ flex: 1, backgroundColor: c.bg }}
+      contentContainerStyle={{ padding: 20 }}
+      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={refresh} />}
+    >
       <ScreenTitle title="Invoice" onBack={() => navigation.goBack()} />
       <Text style={{ fontSize: 12, color: c.mutedLight, fontFamily: font.regular }}>
         {inv.code} · {new Date(inv.createdAt).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" })}
@@ -270,40 +320,47 @@ export function Review({ navigation, route }: NativeStackScreenProps<CustomerSta
 }
 
 export function MyBookings({ navigation }: NativeStackScreenProps<CustomerStackParams, "MyBookings">) {
-  const [bookings, setBookings] = useState<{ id: string; code: string; companyName: string; status: string }[]>([]);
-
-  useFocusEffect(
-    useCallback(() => {
-      api.myBookings().then(setBookings).catch(console.error);
-    }, [])
-  );
+  const { data, loading, refreshing, refresh } = useFetch(() => api.myBookings(), []);
+  const bookings = data ?? [];
 
   return (
-    <ScrollView style={{ flex: 1, backgroundColor: c.bg }} contentContainerStyle={{ padding: 20 }}>
+    <ScrollView
+      style={{ flex: 1, backgroundColor: c.bg }}
+      contentContainerStyle={{ padding: 20 }}
+      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={refresh} />}
+    >
       <ScreenTitle title="My Bookings" onBack={() => navigation.goBack()} />
-      {bookings.length === 0 && (
-        <Text style={{ fontSize: 13, color: c.muted, fontFamily: font.regular }}>
-          No bookings yet.
-        </Text>
+      {loading ? (
+        <SkeletonList />
+      ) : (
+        <>
+          {bookings.length === 0 && (
+            <Text style={{ fontSize: 13, color: c.muted, fontFamily: font.regular }}>No bookings yet.</Text>
+          )}
+          {bookings.map((b) => (
+            <Pressable key={b.id} onPress={() => navigation.navigate("Tracking", { bookingId: b.id })}>
+              <Card
+                style={{
+                  flexDirection: "row",
+                  justifyContent: "space-between",
+                  alignItems: "center",
+                  marginBottom: 12,
+                }}
+              >
+                <View>
+                  <Text style={{ fontFamily: font.bold, fontSize: 14, color: c.text }}>{b.code}</Text>
+                  <Text style={{ fontSize: 12, color: c.muted, marginTop: 2, fontFamily: font.regular }}>
+                    {b.companyName}
+                  </Text>
+                </View>
+                <Text style={{ fontSize: 12, fontFamily: font.bold, color: statusColor(b.status) }}>
+                  {statusLabel(b.status)}
+                </Text>
+              </Card>
+            </Pressable>
+          ))}
+        </>
       )}
-      {bookings.map((b) => (
-        <Pressable key={b.id} onPress={() => navigation.navigate("Tracking", { bookingId: b.id })}>
-          <Card
-            style={{
-              flexDirection: "row",
-              justifyContent: "space-between",
-              alignItems: "center",
-              marginBottom: 12,
-            }}
-          >
-            <View>
-              <Text style={{ fontFamily: font.bold, fontSize: 14, color: c.text }}>{b.code}</Text>
-              <Text style={{ fontSize: 12, color: c.muted, marginTop: 2, fontFamily: font.regular }}>{b.companyName}</Text>
-            </View>
-            <Text style={{ fontSize: 12, fontFamily: font.bold, color: statusColor(b.status) }}>{statusLabel(b.status)}</Text>
-          </Card>
-        </Pressable>
-      ))}
     </ScrollView>
   );
 }

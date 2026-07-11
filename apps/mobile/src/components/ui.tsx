@@ -1,6 +1,7 @@
-import React from "react";
+import React, { useEffect, useRef } from "react";
 import {
   ActivityIndicator,
+  Animated,
   Pressable,
   StyleSheet,
   Text,
@@ -9,6 +10,7 @@ import {
   View,
   ViewStyle,
 } from "react-native";
+import { Feather } from "@expo/vector-icons";
 import { c, font } from "../theme";
 
 export function LoadingScreen() {
@@ -69,7 +71,7 @@ export function ScreenTitle({ title, onBack }: { title: string; onBack?: () => v
     <View style={styles.titleRow}>
       {onBack && (
         <Pressable onPress={onBack} hitSlop={10}>
-          <Text style={{ fontSize: 20, color: c.text }}>←</Text>
+          <Feather name="arrow-left" size={20} color={c.text} />
         </Pressable>
       )}
       <Text style={styles.title}>{title}</Text>
@@ -86,6 +88,51 @@ export function StripedPlaceholder({ label, style }: { label: string; style?: Vi
   return (
     <View style={[styles.striped, style]}>
       <Text style={styles.stripedLabel}>{label}</Text>
+    </View>
+  );
+}
+
+export function SkeletonBox({ style }: { style?: ViewStyle }) {
+  const opacity = useRef(new Animated.Value(0.4)).current;
+
+  useEffect(() => {
+    const loop = Animated.loop(
+      Animated.sequence([
+        Animated.timing(opacity, { toValue: 1, duration: 650, useNativeDriver: true }),
+        Animated.timing(opacity, { toValue: 0.4, duration: 650, useNativeDriver: true }),
+      ])
+    );
+    loop.start();
+    return () => loop.stop();
+  }, [opacity]);
+
+  return <Animated.View style={[{ backgroundColor: c.trackBg, borderRadius: 8, opacity }, style]} />;
+}
+
+/** Stacked card-shaped placeholders — for list screens (Quotations, Matched Requests, Active Jobs, etc.). */
+export function SkeletonList({ rows = 3 }: { rows?: number }) {
+  return (
+    <View>
+      {Array.from({ length: rows }, (_, i) => (
+        <View key={i} style={[styles.card, { marginBottom: 12 }]}>
+          <SkeletonBox style={{ width: "50%", height: 16, marginBottom: 10 }} />
+          <SkeletonBox style={{ width: "80%", height: 12, marginBottom: 6 }} />
+          <SkeletonBox style={{ width: "35%", height: 12 }} />
+        </View>
+      ))}
+    </View>
+  );
+}
+
+/** Text-line-shaped placeholders — for single-record detail screens. */
+export function SkeletonDetail() {
+  return (
+    <View>
+      <SkeletonBox style={{ width: "60%", height: 20, marginBottom: 14 }} />
+      <SkeletonBox style={{ width: "90%", height: 13, marginBottom: 8 }} />
+      <SkeletonBox style={{ width: "75%", height: 13, marginBottom: 8 }} />
+      <SkeletonBox style={{ width: "50%", height: 13, marginBottom: 22 }} />
+      <SkeletonBox style={{ width: "100%", height: 90, borderRadius: 12 }} />
     </View>
   );
 }

@@ -23,6 +23,7 @@ export type CustomerStackParams = {
   };
   Quotations: { requestId: string; code: string };
   QuoteDetail: { requestId: string; quote: RankedQuote };
+  CompanyProfile: { companyId: string };
   BookingConfirm: { bookingId: string; code: string; companyName: string; totalPrice: number };
   Payment: { bookingId: string };
   Tracking: { bookingId: string };

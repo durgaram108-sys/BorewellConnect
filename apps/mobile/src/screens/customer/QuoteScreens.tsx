@@ -1,89 +1,95 @@
-import React, { useCallback, useEffect, useState } from "react";
-import { Modal, Pressable, ScrollView, Text, View } from "react-native";
+import React, { useState } from "react";
+import { Image, Modal, Pressable, RefreshControl, ScrollView, Text, View } from "react-native";
 import { NativeStackScreenProps } from "@react-navigation/native-stack";
-import { useFocusEffect } from "@react-navigation/native";
 import Svg, { Circle, Path } from "react-native-svg";
 import { WebView } from "react-native-webview";
-import { api, RankedQuote } from "../../api";
+import { api } from "../../api";
 import { showToast } from "../../components/Toast";
 import { c, font, inr } from "../../theme";
-import { Card, PrimaryButton, ErrorText, ScreenTitle } from "../../components/ui";
-import { bandLabel } from "../../utils/pricing";
+import { Card, PrimaryButton, ErrorText, ScreenTitle, SkeletonDetail, SkeletonList } from "../../components/ui";
+import { bandLabel, computeTotalFromBands } from "../../utils/pricing";
+import { useFetch } from "../../hooks/useFetch";
 import type { CustomerStackParams } from "../../navigation";
 
 export function Quotations({ navigation, route }: NativeStackScreenProps<CustomerStackParams, "Quotations">) {
   const { requestId } = route.params;
-  const [quotes, setQuotes] = useState<RankedQuote[]>([]);
-
-  useFocusEffect(
-    useCallback(() => {
-      api.quotesFor(requestId).then(setQuotes).catch(console.error);
-    }, [requestId])
-  );
+  const { data, loading, refreshing, refresh } = useFetch(() => api.quotesFor(requestId), [requestId]);
+  const quotes = data ?? [];
 
   return (
-    <ScrollView style={{ flex: 1, backgroundColor: c.bg }} contentContainerStyle={{ paddingVertical: 16 }}>
-      <View style={{ paddingHorizontal: 16 }}>
-        <ScreenTitle title={`Quotations (${quotes.length})`} onBack={() => navigation.goBack()} />
-      </View>
-      <Text style={{ fontSize: 12, color: c.muted, paddingHorizontal: 16, paddingBottom: 16, fontFamily: font.regular }}>
+    <ScrollView
+      style={{ flex: 1, backgroundColor: c.bg }}
+      contentContainerStyle={{ padding: 20 }}
+      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={refresh} />}
+    >
+      <ScreenTitle title={`Quotations (${quotes.length})`} onBack={() => navigation.goBack()} />
+      <Text style={{ fontSize: 12, color: c.muted, marginTop: -10, marginBottom: 16, fontFamily: font.regular }}>
         Ranked by price, rating &amp; distance
       </Text>
 
-      {quotes.length === 0 && (
-        <Text style={{ paddingHorizontal: 16, fontSize: 13, color: c.muted, fontFamily: font.regular }}>
-          No quotations yet — companies in your area have been notified.
-        </Text>
-      )}
-      {quotes.map((q) => (
-        <Pressable key={q.id} onPress={() => navigation.navigate("QuoteDetail", { requestId, quote: q })}>
-          <Card
-            style={{
-              flexDirection: "row",
-              alignItems: "center",
-              gap: 12,
-              marginHorizontal: 16,
-              marginBottom: 12,
-              borderWidth: q.isTop ? 1.5 : 1,
-              borderColor: q.isTop ? c.orange : c.border,
-            }}
-          >
-            <View
-              style={{
-                width: 28,
-                height: 28,
-                borderRadius: 14,
-                backgroundColor: q.isTop ? c.orange : c.navy,
-                alignItems: "center",
-                justifyContent: "center",
-              }}
-            >
-              <Text style={{ color: "#fff", fontSize: 13, fontFamily: font.bold }}>{q.rank}</Text>
-            </View>
-            <View style={{ flex: 1 }}>
-              <Text style={{ fontFamily: font.bold, fontSize: 14, color: c.text }}>{q.companyName}</Text>
-              <Text style={{ fontSize: 12, color: c.muted, marginTop: 2, fontFamily: font.regular }}>
-                ★ {q.rating} · {q.distanceKm} km away
-              </Text>
-              {q.isTop && (
+      {loading ? (
+        <SkeletonList />
+      ) : (
+        <>
+          {quotes.length === 0 && (
+            <Text style={{ fontSize: 13, color: c.muted, fontFamily: font.regular }}>
+              No quotations yet — companies in your area have been notified.
+            </Text>
+          )}
+          {quotes.map((q) => (
+            <Pressable key={q.id} onPress={() => navigation.navigate("QuoteDetail", { requestId, quote: q })}>
+              <Card
+                style={{
+                  flexDirection: "row",
+                  alignItems: "center",
+                  gap: 12,
+                  marginBottom: 12,
+                  borderWidth: q.isTop ? 1.5 : 1,
+                  borderColor: q.isTop ? c.orange : c.border,
+                }}
+              >
                 <View
                   style={{
-                    alignSelf: "flex-start",
-                    backgroundColor: c.orange,
-                    paddingVertical: 2,
-                    paddingHorizontal: 8,
-                    borderRadius: 999,
-                    marginTop: 5,
+                    width: 28,
+                    height: 28,
+                    borderRadius: 14,
+                    backgroundColor: q.isTop ? c.orange : c.navy,
+                    alignItems: "center",
+                    justifyContent: "center",
                   }}
                 >
-                  <Text style={{ fontSize: 10, fontFamily: font.extrabold, color: "#fff" }}>BEST MATCH</Text>
+                  <Text style={{ color: "#fff", fontSize: 13, fontFamily: font.bold }}>{q.rank}</Text>
                 </View>
-              )}
-            </View>
-            <Text style={{ fontFamily: font.extrabold, color: c.green, fontSize: 15 }}>{inr(q.totalPrice)}</Text>
-          </Card>
-        </Pressable>
-      ))}
+                <View style={{ flex: 1 }}>
+                  <Pressable onPress={() => navigation.navigate("CompanyProfile", { companyId: q.companyId })} hitSlop={4}>
+                    <Text style={{ fontFamily: font.bold, fontSize: 14, color: c.text, textDecorationLine: "underline" }}>
+                      {q.companyName}
+                    </Text>
+                  </Pressable>
+                  <Text style={{ fontSize: 12, color: c.muted, marginTop: 2, fontFamily: font.regular }}>
+                    ★ {q.rating} · {q.distanceKm} km away
+                  </Text>
+                  {q.isTop && (
+                    <View
+                      style={{
+                        alignSelf: "flex-start",
+                        backgroundColor: c.orange,
+                        paddingVertical: 2,
+                        paddingHorizontal: 8,
+                        borderRadius: 999,
+                        marginTop: 5,
+                      }}
+                    >
+                      <Text style={{ fontSize: 10, fontFamily: font.extrabold, color: "#fff" }}>BEST MATCH</Text>
+                    </View>
+                  )}
+                </View>
+                <Text style={{ fontFamily: font.extrabold, color: c.green, fontSize: 15 }}>{inr(q.totalPrice)}</Text>
+              </Card>
+            </Pressable>
+          ))}
+        </>
+      )}
     </ScrollView>
   );
 }
@@ -104,8 +110,9 @@ export function QuoteDetail({ navigation, route }: NativeStackScreenProps<Custom
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
 
-  const effectiveRate = quote.totalPrice / quote.depthFt;
-  const pricePct = Math.max(10, 100 - (effectiveRate - 170) * 2);
+  const drillingTotal = computeTotalFromBands(quote.bandRates, quote.depthFt);
+  const drillingRate = drillingTotal / quote.depthFt;
+  const pricePct = Math.max(10, 100 - (drillingRate - 170) * 2);
   const ratingPct = Math.round((quote.rating / 5) * 100);
   const distPct = Math.max(10, 100 - quote.distanceKm * 8);
 
@@ -130,7 +137,11 @@ export function QuoteDetail({ navigation, route }: NativeStackScreenProps<Custom
   return (
     <ScrollView style={{ flex: 1, backgroundColor: c.bg }} contentContainerStyle={{ padding: 20 }}>
       <ScreenTitle title="Quotation Details" onBack={() => navigation.goBack()} />
-      <Text style={{ fontSize: 18, fontFamily: font.extrabold, color: c.text }}>{quote.companyName}</Text>
+      <Pressable onPress={() => navigation.navigate("CompanyProfile", { companyId: quote.companyId })}>
+        <Text style={{ fontSize: 18, fontFamily: font.extrabold, color: c.text, textDecorationLine: "underline" }}>
+          {quote.companyName}
+        </Text>
+      </Pressable>
       <Text style={{ fontSize: 12, color: c.muted, marginTop: 4, fontFamily: font.regular }}>
         {quote.yearsExperience}+ years experience · {quote.machineType} machine
       </Text>
@@ -138,7 +149,7 @@ export function QuoteDetail({ navigation, route }: NativeStackScreenProps<Custom
         {inr(quote.totalPrice)}
       </Text>
       <Text style={{ fontSize: 12, color: c.mutedLight, marginTop: 2, fontFamily: font.regular }}>
-        For {quote.depthFt} ft (avg ₹{Math.round(effectiveRate)}/ft)
+        For {quote.depthFt} ft drilling (avg ₹{Math.round(drillingRate)}/ft) + machine &amp; casing
       </Text>
 
       <Card style={{ marginTop: 16, padding: 14 }}>
@@ -158,9 +169,22 @@ export function QuoteDetail({ navigation, route }: NativeStackScreenProps<Custom
             <Text style={{ fontSize: 13, color: c.text, fontFamily: font.semibold }}>₹{rate}/ft</Text>
           </View>
         ))}
-        <View style={{ flexDirection: "row", justifyContent: "space-between", paddingTop: 10 }}>
+        <View
+          style={{
+            flexDirection: "row",
+            justifyContent: "space-between",
+            paddingVertical: 6,
+            borderTopWidth: 1,
+            borderTopColor: c.trackBg,
+            marginTop: 4,
+          }}
+        >
           <Text style={{ fontSize: 13, color: c.muted, fontFamily: font.regular }}>Machine &amp; Casing Charges</Text>
           <Text style={{ fontSize: 13, color: c.muted, fontFamily: font.semibold }}>{inr(quote.casingRate)}</Text>
+        </View>
+        <View style={{ flexDirection: "row", justifyContent: "space-between", paddingTop: 10 }}>
+          <Text style={{ fontSize: 14, color: c.text, fontFamily: font.extrabold }}>Total</Text>
+          <Text style={{ fontSize: 14, color: c.green, fontFamily: font.extrabold }}>{inr(quote.totalPrice)}</Text>
         </View>
       </Card>
 
@@ -358,6 +382,83 @@ export function Payment({ navigation, route }: NativeStackScreenProps<CustomerSt
           />
         )}
       </Modal>
+    </ScrollView>
+  );
+}
+
+export function CompanyProfileView({ navigation, route }: NativeStackScreenProps<CustomerStackParams, "CompanyProfile">) {
+  const { companyId } = route.params;
+  const { data: profile, loading, refreshing, refresh } = useFetch(() => api.companyProfile(companyId), [companyId]);
+
+  if (loading || !profile) {
+    return (
+      <ScrollView style={{ flex: 1, backgroundColor: c.bg }} contentContainerStyle={{ padding: 20 }}>
+        <ScreenTitle title="Company Profile" onBack={() => navigation.goBack()} />
+        <SkeletonDetail />
+      </ScrollView>
+    );
+  }
+
+  return (
+    <ScrollView
+      style={{ flex: 1, backgroundColor: c.bg }}
+      contentContainerStyle={{ padding: 20 }}
+      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={refresh} />}
+    >
+      <ScreenTitle title="Company Profile" onBack={() => navigation.goBack()} />
+      <Card style={{ padding: 16, marginBottom: 16 }}>
+        <Text style={{ fontFamily: font.extrabold, fontSize: 18, color: c.text }}>{profile.name}</Text>
+        <Text style={{ fontSize: 13, color: c.muted, marginTop: 8, fontFamily: font.regular }}>
+          ★ {profile.ratingAvg} · {profile.experienceYears}+ years experience
+        </Text>
+        <Text style={{ fontSize: 13, color: c.muted, marginTop: 6, fontFamily: font.regular }}>
+          {profile.city}, {profile.state}
+        </Text>
+        <Text style={{ fontSize: 13, color: c.muted, marginTop: 6, fontFamily: font.regular }}>
+          Machine Type: {profile.machineType}
+        </Text>
+        <Text style={{ fontSize: 13, color: c.muted, marginTop: 6, fontFamily: font.regular }}>
+          Registration No: {profile.registrationNumber || "—"}
+        </Text>
+        <Text style={{ fontSize: 12, fontFamily: font.bold, color: c.muted, marginTop: 12, marginBottom: 6 }}>
+          SERVICE AREAS
+        </Text>
+        <View style={{ flexDirection: "row", gap: 6, flexWrap: "wrap" }}>
+          {profile.serviceAreas.map((a) => (
+            <View key={a} style={{ backgroundColor: c.chipBg, paddingVertical: 5, paddingHorizontal: 10, borderRadius: 999 }}>
+              <Text style={{ fontSize: 11, fontFamily: font.semibold, color: c.text }}>{a}</Text>
+            </View>
+          ))}
+        </View>
+      </Card>
+
+      <Text style={{ fontSize: 12, fontFamily: font.bold, color: c.muted, marginBottom: 8 }}>
+        VEHICLE &amp; MACHINE PHOTOS
+      </Text>
+      {profile.vehiclePhotos.length === 0 ? (
+        <Text style={{ fontSize: 13, color: c.mutedLight, marginBottom: 20, fontFamily: font.regular }}>
+          No photos yet.
+        </Text>
+      ) : (
+        <View style={{ flexDirection: "row", gap: 10, marginBottom: 20 }}>
+          {profile.vehiclePhotos.map((p) => (
+            <Image key={p.slot} source={{ uri: p.url }} style={{ flex: 1, height: 90, borderRadius: 10 }} />
+          ))}
+        </View>
+      )}
+
+      <Text style={{ fontSize: 12, fontFamily: font.bold, color: c.muted, marginBottom: 8 }}>
+        BOREWELL WORK PHOTOS
+      </Text>
+      {profile.borewellPhotos.length === 0 ? (
+        <Text style={{ fontSize: 13, color: c.mutedLight, fontFamily: font.regular }}>No photos yet.</Text>
+      ) : (
+        <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 10 }}>
+          {profile.borewellPhotos.map((photo) => (
+            <Image key={photo.id} source={{ uri: photo.url }} style={{ width: 90, height: 90, borderRadius: 10 }} />
+          ))}
+        </View>
+      )}
     </ScrollView>
   );
 }
