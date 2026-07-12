@@ -2,6 +2,7 @@ import React, { useEffect, useState } from "react";
 import { Text, View } from "react-native";
 import { NavigationContainer, DefaultTheme } from "@react-navigation/native";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
+import { SafeAreaProvider, useSafeAreaInsets } from "react-native-safe-area-context";
 import { StatusBar } from "expo-status-bar";
 import {
   useFonts,
@@ -23,11 +24,13 @@ import {
   NotoSansTelugu_800ExtraBold,
 } from "@expo-google-fonts/noto-sans-telugu";
 import { loadTokens, hasCustomerToken, hasOwnerToken } from "./src/api";
+import { loadDebugLog, logEvent } from "./src/debugLog";
 import { c } from "./src/theme";
 import { LanguageProvider } from "./src/i18n/LanguageContext";
 import { ToastHost } from "./src/components/Toast";
 import type { CustomerStackParams, OwnerStackParams, RootStackParams } from "./src/navigation";
 import { RoleSelect } from "./src/screens/RoleSelect";
+import { DebugLog } from "./src/screens/DebugLog";
 import { CustomerLogin, CustomerOtp, CompleteProfile } from "./src/screens/customer/AuthScreens";
 import { CustomerHome, NewRequest, SelectLocation } from "./src/screens/customer/RequestScreens";
 import { Quotations, QuoteDetail, BookingConfirm, Payment, CompanyProfileView } from "./src/screens/customer/QuoteScreens";
@@ -51,17 +54,34 @@ import {
   EditProfile,
 } from "./src/screens/owner/OwnerScreens";
 
+declare const global: {
+  ErrorUtils?: {
+    setGlobalHandler: (handler: (error: Error, isFatal?: boolean) => void) => void;
+    getGlobalHandler: () => ((error: Error, isFatal?: boolean) => void) | undefined;
+  };
+};
+
+if (global.ErrorUtils) {
+  const previousHandler = global.ErrorUtils.getGlobalHandler();
+  global.ErrorUtils.setGlobalHandler((error, isFatal) => {
+    logEvent("error", isFatal ? "Fatal JS error" : "JS error", error.message);
+    previousHandler?.(error, isFatal);
+  });
+}
+
 const Root = createNativeStackNavigator<RootStackParams>();
 const CustomerStack = createNativeStackNavigator<CustomerStackParams>();
 const OwnerStack = createNativeStackNavigator<OwnerStackParams>();
 
 function CustomerFlow() {
+  const insets = useSafeAreaInsets();
   return (
     <CustomerStack.Navigator
-      screenOptions={{ headerShown: false }}
+      screenOptions={{ headerShown: false, contentStyle: { paddingTop: insets.top } }}
       initialRouteName={hasCustomerToken() ? "CustomerHome" : "CustomerLogin"}
     >
-      <CustomerStack.Screen name="CustomerLogin" component={CustomerLogin} />
+      {/* CustomerLogin renders its own full-bleed hero image behind the status bar — no extra top padding. */}
+      <CustomerStack.Screen name="CustomerLogin" component={CustomerLogin} options={{ contentStyle: { paddingTop: 0 } }} />
       <CustomerStack.Screen name="CustomerOtp" component={CustomerOtp} />
       <CustomerStack.Screen name="CustomerHome" component={CustomerHome} />
       <CustomerStack.Screen name="CompleteProfile" component={CompleteProfile} />
@@ -83,9 +103,10 @@ function CustomerFlow() {
 }
 
 function OwnerFlow() {
+  const insets = useSafeAreaInsets();
   return (
     <OwnerStack.Navigator
-      screenOptions={{ headerShown: false }}
+      screenOptions={{ headerShown: false, contentStyle: { paddingTop: insets.top } }}
       initialRouteName={hasOwnerToken() ? "OwnerDashboard" : "OwnerLogin"}
     >
       <OwnerStack.Screen name="OwnerLogin" component={OwnerLogin} />
@@ -125,6 +146,7 @@ export default function App() {
   });
 
   useEffect(() => {
+    loadDebugLog();
     loadTokens().finally(() => setReady(true));
     // Don't hang forever on font loading — fall back to system fonts.
     const t = setTimeout(() => setFontTimeout(true), 4000);
@@ -140,16 +162,19 @@ export default function App() {
   }
 
   return (
-    <LanguageProvider>
-      <NavigationContainer theme={theme}>
-        <StatusBar style="dark" />
-        <Root.Navigator screenOptions={{ headerShown: false }}>
-          <Root.Screen name="RoleSelect" component={RoleSelect} />
-          <Root.Screen name="Customer" component={CustomerFlow} />
-          <Root.Screen name="Owner" component={OwnerFlow} />
-        </Root.Navigator>
-        <ToastHost />
-      </NavigationContainer>
-    </LanguageProvider>
+    <SafeAreaProvider>
+      <LanguageProvider>
+        <NavigationContainer theme={theme}>
+          <StatusBar style="dark" />
+          <Root.Navigator screenOptions={{ headerShown: false }}>
+            <Root.Screen name="RoleSelect" component={RoleSelect} />
+            <Root.Screen name="Customer" component={CustomerFlow} />
+            <Root.Screen name="Owner" component={OwnerFlow} />
+            <Root.Screen name="DebugLog" component={DebugLog} />
+          </Root.Navigator>
+          <ToastHost />
+        </NavigationContainer>
+      </LanguageProvider>
+    </SafeAreaProvider>
   );
 }

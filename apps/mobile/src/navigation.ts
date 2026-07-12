@@ -4,11 +4,12 @@ export type RootStackParams = {
   RoleSelect: undefined;
   Customer: undefined;
   Owner: undefined;
+  DebugLog: undefined;
 };
 
 export type CustomerStackParams = {
   CustomerLogin: undefined;
-  CustomerOtp: { phone: string };
+  CustomerOtp: { phone: string; devHint?: string };
   CustomerHome: undefined;
   CompleteProfile: undefined;
   NewRequest: undefined;
@@ -18,6 +19,7 @@ export type CustomerStackParams = {
     district: string;
     mandal: string;
     landType: string;
+    machineType: string;
     depthFt: number;
     preferredDate: string;
   };
@@ -36,7 +38,7 @@ export type CustomerStackParams = {
 
 export type OwnerStackParams = {
   OwnerLogin: undefined;
-  OwnerOtp: { phone: string };
+  OwnerOtp: { phone: string; devHint?: string };
   OwnerDashboard: undefined;
   NewLeads: undefined;
   ActiveJobs: undefined;

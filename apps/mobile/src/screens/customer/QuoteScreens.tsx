@@ -7,7 +7,7 @@ import { api } from "../../api";
 import { showToast } from "../../components/Toast";
 import { c, font, inr } from "../../theme";
 import { Card, PrimaryButton, ErrorText, ScreenTitle, SkeletonDetail, SkeletonList } from "../../components/ui";
-import { bandLabel, computeTotalFromBands } from "../../utils/pricing";
+import { bandLabel, CASING_TYPES, computeTotalFromBands } from "../../utils/pricing";
 import { useFetch } from "../../hooks/useFetch";
 import { useTranslation } from "../../i18n/LanguageContext";
 import type { CustomerStackParams } from "../../navigation";
@@ -170,23 +170,36 @@ export function QuoteDetail({ navigation, route }: NativeStackScreenProps<Custom
             <Text style={{ fontSize: 13, color: c.text, fontFamily: font.semibold }}>₹{rate}/ft</Text>
           </View>
         ))}
-        <View
-          style={{
-            flexDirection: "row",
-            justifyContent: "space-between",
-            paddingVertical: 6,
-            borderTopWidth: 1,
-            borderTopColor: c.trackBg,
-            marginTop: 4,
-          }}
-        >
-          <Text style={{ fontSize: 13, color: c.muted, fontFamily: font.regular }}>{t("quoteDetail.machineCasingCharges")}</Text>
-          <Text style={{ fontSize: 13, color: c.muted, fontFamily: font.semibold }}>{inr(quote.casingRate)}</Text>
-        </View>
         <View style={{ flexDirection: "row", justifyContent: "space-between", paddingTop: 10 }}>
           <Text style={{ fontSize: 14, color: c.text, fontFamily: font.extrabold }}>{t("quoteDetail.total")}</Text>
           <Text style={{ fontSize: 14, color: c.green, fontFamily: font.extrabold }}>{inr(quote.totalPrice)}</Text>
         </View>
+      </Card>
+
+      <Card style={{ marginTop: 12, padding: 14 }}>
+        <Text style={{ fontSize: 12, fontFamily: font.bold, color: c.muted, marginBottom: 4 }}>
+          {t("quoteDetail.casingOptionsTitle")}
+        </Text>
+        <Text style={{ fontSize: 11, color: c.mutedLight, marginBottom: 8, fontFamily: font.regular }}>
+          {t("quoteDetail.casingNote")}
+        </Text>
+        {CASING_TYPES.map((ct, i) => (
+          <View
+            key={ct.key}
+            style={{
+              flexDirection: "row",
+              justifyContent: "space-between",
+              paddingVertical: 6,
+              borderBottomWidth: i === CASING_TYPES.length - 1 ? 0 : 1,
+              borderBottomColor: c.trackBg,
+            }}
+          >
+            <Text style={{ fontSize: 13, color: c.text, fontFamily: font.regular }}>{ct.label}</Text>
+            <Text style={{ fontSize: 13, color: c.text, fontFamily: font.semibold }}>
+              {quote[ct.field] > 0 ? `₹${quote[ct.field]}/ft` : t("quoteDetail.casingNotOffered")}
+            </Text>
+          </View>
+        ))}
       </Card>
 
       <View style={{ marginTop: 8 }}>
@@ -224,7 +237,10 @@ export function BookingConfirm({ navigation, route }: NativeStackScreenProps<Cus
         <Text style={{ fontSize: 11, color: c.mutedLight, marginTop: 14, fontFamily: font.regular }}>{t("bookingConfirm.agreedTotal")}</Text>
         <Text style={{ fontSize: 18, fontFamily: font.extrabold, marginTop: 4, color: c.green }}>{inr(totalPrice)}</Text>
       </Card>
-      <Text style={{ fontSize: 12, color: c.mutedLight, marginTop: 16, fontFamily: font.regular }}>
+      <Text style={{ fontSize: 12, color: c.mutedLight, marginTop: 14, textAlign: "center", fontFamily: font.regular }}>
+        {t("bookingConfirm.casingSeparateNote")}
+      </Text>
+      <Text style={{ fontSize: 12, color: c.mutedLight, marginTop: 10, fontFamily: font.regular }}>
         {t("bookingConfirm.contactNote")}
       </Text>
       <PrimaryButton
@@ -424,7 +440,7 @@ export function CompanyProfileView({ navigation, route }: NativeStackScreenProps
           {profile.city}, {profile.state}
         </Text>
         <Text style={{ fontSize: 13, color: c.muted, marginTop: 6, fontFamily: font.regular }}>
-          {t("companyProfile.machineType", { type: profile.machineType })}
+          {t("companyProfile.machineType", { type: profile.machineTypes.join(", ") })}
         </Text>
         <Text style={{ fontSize: 13, color: c.muted, marginTop: 6, fontFamily: font.regular }}>
           {t("companyProfile.registrationNo", { no: profile.registrationNumber || "—" })}

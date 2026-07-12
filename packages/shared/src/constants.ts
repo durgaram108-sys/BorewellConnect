@@ -37,6 +37,21 @@ export const MILESTONES = [
 
 export const LAND_TYPES = ["Agriculture", "Residential", "Commercial"] as const;
 
+export const MACHINE_TYPES = ['4 1/2"', '6 1/2"'] as const;
+
+/**
+ * Casing is priced per foot, per type — actual footage/type used is only known once
+ * drilling is done, so it's charged at job completion rather than baked into the quote
+ * total. `field` names the Company/Quote/Booking column holding that type's ₹/ft rate.
+ */
+export const CASING_TYPES = [
+  { key: "6kg", label: "6kg PVC", field: "casingRate6kg" },
+  { key: "8kg", label: "8kg PVC", field: "casingRate8kg" },
+  { key: "10kg", label: "10kg PVC", field: "casingRate10kg" },
+  { key: "iron", label: "Iron / GI", field: "casingRateIron" },
+] as const;
+export type CasingTypeKey = (typeof CASING_TYPES)[number]["key"];
+
 export const BOOKING_FEE = 500;
 
 export const BOOKING_STATUS = {

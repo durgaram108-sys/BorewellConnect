@@ -1,9 +1,10 @@
 import { Router } from "express";
 import { z } from "zod";
-import { computeTotalFromBands, MAX_DEPTH_FT } from "@borewell/shared";
+import { CASING_TYPES, computeTotalFromBands, MACHINE_TYPES, MAX_DEPTH_FT } from "@borewell/shared";
 import { prisma } from "../prisma";
 import { AuthedRequest, requireAuth } from "../auth";
 import { genInvoiceCode } from "../util/codes";
+import { recordMandal, recordVillage } from "../services/locationSuggestions";
 
 export const ownerRouter = Router();
 ownerRouter.use(requireAuth("owner"));
@@ -34,10 +35,11 @@ ownerRouter.get("/leads", async (req: AuthedRequest, res) => {
         district: l.district,
         mandal: l.mandal,
         landType: l.landType,
+        machineType: l.machineType,
         depthFt: l.depthFt,
         preferredDate: l.preferredDate,
         createdAt: l.createdAt,
-        totalPrice: computeTotalFromBands(quote.bandRates, l.depthFt) + quote.casingRate,
+        totalPrice: computeTotalFromBands(quote.bandRates, l.depthFt),
       };
     })
   );
@@ -64,9 +66,10 @@ ownerRouter.get("/jobs", async (req: AuthedRequest, res) => {
         code: j.code,
         status: j.status,
         bandRates: j.bandRates,
-        totalPrice: computeTotalFromBands(j.bandRates, j.request.depthFt) + j.casingRate,
+        totalPrice: computeTotalFromBands(j.bandRates, j.request.depthFt),
         district: j.request.district,
         mandal: j.request.mandal,
+        machineType: j.request.machineType,
         depthFt: j.request.depthFt,
         // Customer details shared only after the booking fee is paid.
         customerName: paid ? j.customer.name ?? "Customer" : null,
@@ -80,7 +83,15 @@ ownerRouter.get("/jobs", async (req: AuthedRequest, res) => {
 });
 
 /** Advance the next incomplete milestone; completing the last one finishes the job + issues the invoice. */
+const advanceMilestoneSchema = z.object({
+  casingType: z.enum(["6kg", "8kg", "10kg", "iron"]).optional(),
+  casingFeet: z.coerce.number().int().min(0).optional(),
+});
+
 ownerRouter.post("/jobs/:id/milestones/advance", async (req: AuthedRequest, res) => {
+  const parsed = advanceMilestoneSchema.safeParse(req.body);
+  if (!parsed.success) return res.status(400).json({ error: parsed.error.issues[0].message });
+
   const booking = await prisma.booking.findFirst({
     where: { id: req.params.id, companyId: req.auth!.sub },
     include: { milestones: { orderBy: { order: "asc" } }, request: true },
@@ -91,15 +102,22 @@ ownerRouter.post("/jobs/:id/milestones/advance", async (req: AuthedRequest, res)
   if (!next) return res.status(409).json({ error: "All milestones already complete" });
 
   const isLast = next.order === booking.milestones.length - 1;
+  if (isLast && (!parsed.data.casingType || parsed.data.casingFeet === undefined)) {
+    return res.status(400).json({ error: "Select the casing type and enter the feet used to complete this job" });
+  }
 
   await prisma.$transaction(async (tx) => {
     await tx.milestone.update({ where: { id: next.id }, data: { completedAt: new Date() } });
     await tx.workUpdate.create({ data: { bookingId: booking.id, label: next.label } });
 
     if (isLast) {
+      const casingTypeInfo = CASING_TYPES.find((c) => c.key === parsed.data.casingType)!;
+      const casingRatePerFt = booking[casingTypeInfo.field];
+      const casingFeet = parsed.data.casingFeet!;
+      const casingAmount = casingRatePerFt * casingFeet;
+
       const drilling = computeTotalFromBands(booking.bandRates, booking.request.depthFt);
-      const machineCasing = booking.casingRate;
-      const total = drilling + machineCasing - booking.bookingFee;
+      const total = drilling + casingAmount - booking.bookingFee;
       await tx.invoice.create({
         data: {
           code: genInvoiceCode(),
@@ -107,12 +125,15 @@ ownerRouter.post("/jobs/:id/milestones/advance", async (req: AuthedRequest, res)
           total,
           lineItems: [
             { label: `Drilling (${booking.request.depthFt} ft, banded rate)`, amount: drilling },
-            { label: "Machine & Casing Charges", amount: machineCasing },
+            { label: `Casing (${casingTypeInfo.label}, ${casingFeet} ft @ ₹${casingRatePerFt}/ft)`, amount: casingAmount },
             { label: "Booking Fee (paid)", amount: -booking.bookingFee },
           ],
         },
       });
-      await tx.booking.update({ where: { id: booking.id }, data: { status: "COMPLETED" } });
+      await tx.booking.update({
+        where: { id: booking.id },
+        data: { status: "COMPLETED", casingType: casingTypeInfo.key, casingFeet },
+      });
       await tx.borewellRequest.update({ where: { id: booking.requestId }, data: { status: "COMPLETED" } });
     } else if (booking.status === "PAID") {
       await tx.booking.update({ where: { id: booking.id }, data: { status: "IN_PROGRESS" } });
@@ -174,16 +195,23 @@ ownerRouter.get("/profile", async (req: AuthedRequest, res) => {
 const profileSchema = z.object({
   name: z.string().min(1).optional(),
   ownerName: z.string().optional(),
+  ownerSurname: z.string().optional(),
   address: z.string().optional(),
   city: z.string().optional(),
   state: z.string().optional(),
+  mandal: z.string().optional(),
+  village: z.string().optional(),
+  pincode: z.string().optional(),
   experienceYears: z.coerce.number().int().min(0).optional(),
   registrationNumber: z.string().optional(),
   serviceAreas: z.array(z.string()).optional(),
-  machineType: z.string().optional(),
+  machineTypes: z.array(z.enum(MACHINE_TYPES)).optional(),
   maxDepthFt: z.coerce.number().int().positive().max(MAX_DEPTH_FT).optional(),
   rateCard: z.array(z.coerce.number().int().positive()).optional(),
-  casingRate: z.coerce.number().int().positive().optional(),
+  casingRate6kg: z.coerce.number().int().min(0).optional(),
+  casingRate8kg: z.coerce.number().int().min(0).optional(),
+  casingRate10kg: z.coerce.number().int().min(0).optional(),
+  casingRateIron: z.coerce.number().int().min(0).optional(),
   estimatedCompletion: z.string().min(1).optional(),
   availableDates: z.array(z.coerce.date()).optional(),
   baseLat: z.coerce.number().optional(),
@@ -198,6 +226,14 @@ ownerRouter.patch("/profile", async (req: AuthedRequest, res) => {
   if (!parsed.success) return res.status(400).json({ error: parsed.error.issues[0].message });
 
   const company = await prisma.company.update({ where: { id: req.auth!.sub }, data: parsed.data });
+
+  // Use the post-update record (not just this request's payload) since profile
+  // saves are often partial — e.g. saving a new Mandal shouldn't require resending State/District.
+  if (company.state && company.city && company.mandal) {
+    await recordMandal(company.state, company.city, company.mandal);
+    if (company.village) await recordVillage(company.state, company.city, company.mandal, company.village);
+  }
+
   res.json(company);
 });
 

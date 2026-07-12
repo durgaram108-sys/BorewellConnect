@@ -1,11 +1,12 @@
 import { Router } from "express";
 import { z } from "zod";
-import { blendedScore, computeTotalFromBands, MAX_DEPTH_FT, MILESTONES } from "@borewell/shared";
+import { blendedScore, computeTotalFromBands, MACHINE_TYPES, MAX_DEPTH_FT, MILESTONES } from "@borewell/shared";
 import { prisma } from "../prisma";
 import { AuthedRequest, requireAuth } from "../auth";
 import { distanceKm, genBookingCode, genRequestCode } from "../util/codes";
 import { companyServiceAreaFilter, isSameCalendarDay } from "../util/matching";
 import { createOrder, verifyPaymentSignature } from "../services/razorpay";
+import { recordMandal, recordVillage } from "../services/locationSuggestions";
 import { env } from "../env";
 
 export const customerRouter = Router();
@@ -21,7 +22,13 @@ customerRouter.get("/profile", async (req: AuthedRequest, res) => {
 
 const customerProfileSchema = z.object({
   name: z.string().min(1).optional(),
+  surname: z.string().optional(),
   address: z.string().min(1).optional(),
+  state: z.string().optional(),
+  district: z.string().optional(),
+  mandal: z.string().optional(),
+  village: z.string().optional(),
+  pincode: z.string().optional(),
 });
 
 customerRouter.patch("/profile", async (req: AuthedRequest, res) => {
@@ -29,6 +36,14 @@ customerRouter.patch("/profile", async (req: AuthedRequest, res) => {
   if (!parsed.success) return res.status(400).json({ error: parsed.error.issues[0].message });
 
   const customer = await prisma.customer.update({ where: { id: req.auth!.sub }, data: parsed.data });
+
+  // Use the post-update record (not just this request's payload) since profile
+  // saves are often partial — e.g. saving a new Mandal shouldn't require resending State/District.
+  if (customer.state && customer.district && customer.mandal) {
+    await recordMandal(customer.state, customer.district, customer.mandal);
+    if (customer.village) await recordVillage(customer.state, customer.district, customer.mandal, customer.village);
+  }
+
   res.json(customer);
 });
 
@@ -38,6 +53,7 @@ const requestSchema = z.object({
   district: z.string().min(1),
   mandal: z.string().min(1),
   landType: z.enum(["Agriculture", "Residential", "Commercial"]),
+  machineType: z.enum(MACHINE_TYPES),
   depthFt: z.coerce.number().int().positive().max(MAX_DEPTH_FT),
   lat: z.coerce.number(),
   lng: z.coerce.number(),
@@ -66,6 +82,7 @@ customerRouter.post("/requests", async (req: AuthedRequest, res) => {
     (c) =>
       c.maxDepthFt >= request.depthFt &&
       c.rateCard.length >= bandsNeeded &&
+      c.machineTypes.includes(request.machineType) &&
       c.availableDates.some((d) => isSameCalendarDay(d, request.preferredDate))
   );
   if (eligible.length) {
@@ -74,9 +91,12 @@ customerRouter.post("/requests", async (req: AuthedRequest, res) => {
         requestId: request.id,
         companyId: c.id,
         bandRates: c.rateCard.slice(0, bandsNeeded),
-        machineType: c.machineType,
+        machineType: request.machineType,
         estimatedCompletion: c.estimatedCompletion,
-        casingRate: c.casingRate,
+        casingRate6kg: c.casingRate6kg,
+        casingRate8kg: c.casingRate8kg,
+        casingRate10kg: c.casingRate10kg,
+        casingRateIron: c.casingRateIron,
       })),
     });
   }
@@ -110,8 +130,7 @@ customerRouter.get("/requests/:id/quotes", async (req: AuthedRequest, res) => {
   const ranked = quotes
     .map((q) => {
       const dist = distanceKm(request.lat, request.lng, q.company.baseLat, q.company.baseLng);
-      const drillingTotal = computeTotalFromBands(q.bandRates, request.depthFt);
-      const totalPrice = drillingTotal + q.casingRate;
+      const totalPrice = computeTotalFromBands(q.bandRates, request.depthFt);
       const effectiveRate = totalPrice / request.depthFt;
       return {
         id: q.id,
@@ -121,7 +140,10 @@ customerRouter.get("/requests/:id/quotes", async (req: AuthedRequest, res) => {
         bandRates: q.bandRates,
         totalPrice,
         depthFt: request.depthFt,
-        casingRate: q.casingRate,
+        casingRate6kg: q.casingRate6kg,
+        casingRate8kg: q.casingRate8kg,
+        casingRate10kg: q.casingRate10kg,
+        casingRateIron: q.casingRateIron,
         machineType: q.machineType,
         estimatedCompletion: q.estimatedCompletion,
         rating: q.company.ratingAvg,
@@ -150,7 +172,7 @@ customerRouter.get("/companies/:id", async (req: AuthedRequest, res) => {
     city: company.city,
     state: company.state,
     experienceYears: company.experienceYears,
-    machineType: company.machineType,
+    machineTypes: company.machineTypes,
     registrationNumber: company.registrationNumber,
     ratingAvg: company.ratingAvg,
     serviceAreas: company.serviceAreas,
@@ -179,7 +201,10 @@ customerRouter.post("/quotes/:quoteId/book", async (req: AuthedRequest, res) => 
         customerId: req.auth!.sub,
         companyId: quote.companyId,
         bandRates: quote.bandRates,
-        casingRate: quote.casingRate,
+        casingRate6kg: quote.casingRate6kg,
+        casingRate8kg: quote.casingRate8kg,
+        casingRate10kg: quote.casingRate10kg,
+        casingRateIron: quote.casingRateIron,
       },
     });
     await tx.borewellRequest.update({ where: { id: quote.requestId }, data: { status: "BOOKED" } });
@@ -274,6 +299,13 @@ customerRouter.get("/bookings/:id", async (req: AuthedRequest, res) => {
     status: booking.status,
     bandRates: booking.bandRates,
     totalPrice: computeTotalFromBands(booking.bandRates, booking.request.depthFt),
+    machineType: booking.request.machineType,
+    casingRate6kg: booking.casingRate6kg,
+    casingRate8kg: booking.casingRate8kg,
+    casingRate10kg: booking.casingRate10kg,
+    casingRateIron: booking.casingRateIron,
+    casingType: booking.casingType,
+    casingFeet: booking.casingFeet,
     bookingFee: booking.bookingFee,
     createdAt: booking.createdAt,
     company: {
@@ -282,7 +314,6 @@ customerRouter.get("/bookings/:id", async (req: AuthedRequest, res) => {
       city: booking.company.city,
       state: booking.company.state,
       experienceYears: booking.company.experienceYears,
-      machineType: booking.company.machineType,
       // Contact details only shared after the booking fee is paid.
       phone: paid ? booking.company.phone : null,
     },

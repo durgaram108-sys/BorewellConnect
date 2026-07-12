@@ -19,6 +19,8 @@ import { api, setCustomerToken, CustomerProfile } from "../../api";
 import { showToast } from "../../components/Toast";
 import { c, font } from "../../theme";
 import { Field, FieldLabel, LoadingScreen, PrimaryButton, ErrorText, ScreenTitle } from "../../components/ui";
+import { SelectField, AutocompleteField } from "../../components/Picker";
+import { DISTRICTS_BY_STATE, INDIA_STATES } from "../../data/indiaLocations";
 import { LanguagePicker } from "../../components/LanguagePicker";
 import { useTranslation } from "../../i18n/LanguageContext";
 import type { CustomerStackParams } from "../../navigation";
@@ -26,7 +28,16 @@ import type { CustomerStackParams } from "../../navigation";
 function makeCompleteProfileSchema(t: (key: string) => string) {
   return z.object({
     name: z.string().min(1, t("completeProfile.nameRequired")),
+    surname: z.string().optional(),
     address: z.string().min(1, t("completeProfile.addressRequired")),
+    state: z.string().min(1, t("newRequest.stateRequired")),
+    district: z.string().min(1, t("newRequest.districtRequired")),
+    mandal: z.string().min(1, t("newRequest.mandalRequired")),
+    village: z.string().optional(),
+    pincode: z
+      .string()
+      .optional()
+      .refine((v) => !v || /^\d{6}$/.test(v), t("completeProfile.pincodeInvalid")),
   });
 }
 type CompleteProfileForm = z.infer<ReturnType<typeof makeCompleteProfileSchema>>;
@@ -48,8 +59,8 @@ export function CustomerLogin({ navigation }: NativeStackScreenProps<CustomerSta
     setBusy(true);
     setError("");
     try {
-      await api.customerRequestOtp(phone);
-      navigation.navigate("CustomerOtp", { phone });
+      const { devHint } = await api.customerRequestOtp(phone);
+      navigation.navigate("CustomerOtp", { phone, devHint });
     } catch (e) {
       setError(e instanceof Error ? e.message : t("customerLogin.failedToSend"));
     } finally {
@@ -163,7 +174,7 @@ export function CustomerLogin({ navigation }: NativeStackScreenProps<CustomerSta
 }
 
 export function CustomerOtp({ navigation, route }: NativeStackScreenProps<CustomerStackParams, "CustomerOtp">) {
-  const { phone } = route.params;
+  const { phone, devHint } = route.params;
   const { width } = useWindowDimensions();
   const isWide = width >= WIDE_BREAKPOINT;
   const { t } = useTranslation();
@@ -202,6 +213,20 @@ export function CustomerOtp({ navigation, route }: NativeStackScreenProps<Custom
         <Text style={{ fontSize: 13, color: c.muted, fontFamily: font.regular }}>
           {t("customerOtp.sentTo", { phone })}
         </Text>
+        {devHint ? (
+          <View
+            style={{
+              backgroundColor: "#FDF3DC",
+              borderWidth: 1,
+              borderColor: "#F0D48A",
+              borderRadius: 10,
+              padding: 12,
+              marginTop: 14,
+            }}
+          >
+            <Text style={{ fontSize: 12, fontFamily: font.semibold, color: "#8A6416" }}>{devHint}</Text>
+          </View>
+        ) : null}
         <TextInput
           value={code}
           onChangeText={setCode}
@@ -246,17 +271,62 @@ export function CompleteProfile({ navigation }: NativeStackScreenProps<CustomerS
   const {
     control,
     handleSubmit,
+    watch,
+    setValue,
     formState: { errors },
   } = useForm<CompleteProfileForm>({
     resolver: zodResolver(completeProfileSchema),
-    values: profile ? { name: profile.name ?? "", address: profile.address ?? "" } : undefined,
+    values: profile
+      ? {
+          name: profile.name ?? "",
+          surname: profile.surname ?? "",
+          address: profile.address ?? "",
+          state: profile.state ?? "",
+          district: profile.district ?? "",
+          mandal: profile.mandal ?? "",
+          village: profile.village ?? "",
+          pincode: profile.pincode ?? "",
+        }
+      : undefined,
   });
+
+  const selectedState = watch("state");
+  const selectedDistrict = watch("district");
+  const selectedMandal = watch("mandal");
+
+  const [mandalSuggestions, setMandalSuggestions] = useState<string[]>([]);
+  const [villageSuggestions, setVillageSuggestions] = useState<string[]>([]);
+
+  useEffect(() => {
+    if (!selectedState || !selectedDistrict) {
+      setMandalSuggestions([]);
+      return;
+    }
+    api.mandalSuggestions(selectedState, selectedDistrict).then(setMandalSuggestions).catch(() => {});
+  }, [selectedState, selectedDistrict]);
+
+  useEffect(() => {
+    if (!selectedState || !selectedDistrict || !selectedMandal) {
+      setVillageSuggestions([]);
+      return;
+    }
+    api.villageSuggestions(selectedState, selectedDistrict, selectedMandal).then(setVillageSuggestions).catch(() => {});
+  }, [selectedState, selectedDistrict, selectedMandal]);
 
   const save = async (data: CompleteProfileForm) => {
     setBusy(true);
     setError("");
     try {
-      await api.updateCustomerProfile({ name: data.name.trim(), address: data.address.trim() });
+      await api.updateCustomerProfile({
+        name: data.name.trim(),
+        surname: data.surname?.trim(),
+        address: data.address.trim(),
+        state: data.state,
+        district: data.district,
+        mandal: data.mandal.trim(),
+        village: data.village?.trim(),
+        pincode: data.pincode?.trim(),
+      });
       showToast(t("completeProfile.saved"));
       navigation.goBack();
     } catch (e) {
@@ -288,6 +358,14 @@ export function CompleteProfile({ navigation }: NativeStackScreenProps<CustomerS
         )}
       />
       <ErrorText>{errors.name?.message}</ErrorText>
+      <FieldLabel>{t("completeProfile.surname").toUpperCase()}</FieldLabel>
+      <Controller
+        control={control}
+        name="surname"
+        render={({ field: { value, onChange } }) => (
+          <Field value={value} onChangeText={onChange} placeholder={t("completeProfile.surnamePlaceholder")} />
+        )}
+      />
       <FieldLabel>{t("completeProfile.address").toUpperCase()}</FieldLabel>
       <Controller
         control={control}
@@ -303,6 +381,80 @@ export function CompleteProfile({ navigation }: NativeStackScreenProps<CustomerS
         )}
       />
       <ErrorText>{errors.address?.message}</ErrorText>
+      <FieldLabel>{t("newRequest.state").toUpperCase()}</FieldLabel>
+      <Controller
+        control={control}
+        name="state"
+        render={({ field: { value, onChange } }) => (
+          <SelectField
+            value={value}
+            onChange={(v) => {
+              onChange(v);
+              setValue("district", "");
+            }}
+            options={INDIA_STATES}
+            placeholder={t("newRequest.selectState")}
+          />
+        )}
+      />
+      <ErrorText>{errors.state?.message}</ErrorText>
+      <FieldLabel>{t("newRequest.district").toUpperCase()}</FieldLabel>
+      <Controller
+        control={control}
+        name="district"
+        render={({ field: { value, onChange } }) => (
+          <SelectField
+            value={value}
+            onChange={onChange}
+            options={DISTRICTS_BY_STATE[selectedState] ?? []}
+            placeholder={t("newRequest.selectDistrict")}
+            disabledMessage={t("newRequest.selectStateFirst")}
+          />
+        )}
+      />
+      <ErrorText>{errors.district?.message}</ErrorText>
+      <FieldLabel>{t("newRequest.mandal").toUpperCase()}</FieldLabel>
+      <Controller
+        control={control}
+        name="mandal"
+        render={({ field: { value, onChange } }) => (
+          <AutocompleteField
+            value={value}
+            onChange={onChange}
+            suggestions={mandalSuggestions}
+            placeholder={t("newRequest.mandalPlaceholder")}
+          />
+        )}
+      />
+      <ErrorText>{errors.mandal?.message}</ErrorText>
+      <FieldLabel>{t("completeProfile.village").toUpperCase()}</FieldLabel>
+      <Controller
+        control={control}
+        name="village"
+        render={({ field: { value, onChange } }) => (
+          <AutocompleteField
+            value={value ?? ""}
+            onChange={onChange}
+            suggestions={villageSuggestions}
+            placeholder={t("completeProfile.villagePlaceholder")}
+          />
+        )}
+      />
+      <FieldLabel>{t("completeProfile.pincode").toUpperCase()}</FieldLabel>
+      <Controller
+        control={control}
+        name="pincode"
+        render={({ field: { value, onChange } }) => (
+          <Field
+            value={value}
+            onChangeText={onChange}
+            keyboardType="number-pad"
+            maxLength={6}
+            placeholder={t("completeProfile.pincodePlaceholder")}
+          />
+        )}
+      />
+      <ErrorText>{errors.pincode?.message}</ErrorText>
       <Text style={{ fontSize: 12, color: c.mutedLight, marginBottom: 14, fontFamily: font.regular }}>
         {t("completeProfile.mobile", { phone: profile.phone })}
       </Text>

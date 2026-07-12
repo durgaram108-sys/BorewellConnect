@@ -1,4 +1,5 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { logEvent } from "./debugLog";
 
 declare const process: { env: Record<string, string | undefined> };
 
@@ -29,29 +30,48 @@ export const hasOwnerToken = () => !!ownerToken;
 
 async function req<T>(path: string, init?: RequestInit, role?: "customer" | "owner"): Promise<T> {
   const token = role === "owner" ? ownerToken : role === "customer" ? customerToken : null;
-  const res = await fetch(`${API}${path}`, {
-    ...init,
-    headers: {
-      "content-type": "application/json",
-      ...(token ? { authorization: `Bearer ${token}` } : {}),
-      ...(init?.headers as Record<string, string> | undefined),
-    },
-  });
+  const method = init?.method ?? "GET";
+  const url = `${API}${path}`;
+  let res: Response;
+  try {
+    res = await fetch(url, {
+      ...init,
+      headers: {
+        "content-type": "application/json",
+        ...(token ? { authorization: `Bearer ${token}` } : {}),
+        ...(init?.headers as Record<string, string> | undefined),
+      },
+    });
+  } catch (e) {
+    logEvent("error", `${method} ${path} — no response`, `${url} :: ${e instanceof Error ? e.message : e}`);
+    throw e;
+  }
   const body = await res.json();
-  if (!res.ok) throw new Error(body.error ?? `Request failed (${res.status})`);
+  if (!res.ok) {
+    const message = body.error ?? `Request failed (${res.status})`;
+    logEvent("error", `${method} ${path} — ${res.status}`, `${url} :: ${message}`);
+    throw new Error(message);
+  }
+  logEvent("info", `${method} ${path} — ${res.status}`, url);
   return body as T;
 }
 
 // ---- Types mirrored from the API ----
 
-export interface RankedQuote {
+export interface CasingRates {
+  casingRate6kg: number;
+  casingRate8kg: number;
+  casingRate10kg: number;
+  casingRateIron: number;
+}
+
+export interface RankedQuote extends CasingRates {
   id: string;
   companyId: string;
   companyName: string;
   bandRates: number[];
   totalPrice: number;
   depthFt: number;
-  casingRate: number;
   machineType: string;
   estimatedCompletion: string;
   rating: number;
@@ -73,12 +93,15 @@ export interface RequestRow {
   quoteCount: number;
 }
 
-export interface BookingDetail {
+export interface BookingDetail extends CasingRates {
   id: string;
   code: string;
   status: string;
   bandRates: number[];
   totalPrice: number;
+  machineType: string;
+  casingType: string | null;
+  casingFeet: number | null;
   bookingFee: number;
   company: {
     id: string;
@@ -86,7 +109,6 @@ export interface BookingDetail {
     city: string;
     state: string;
     experienceYears: number;
-    machineType: string;
     phone: string | null;
   };
   milestones: { label: string; completedAt: string | null }[];
@@ -111,6 +133,7 @@ export interface Lead {
   district: string;
   mandal: string;
   landType: string;
+  machineType: string;
   depthFt: number;
   preferredDate: string;
   totalPrice: number;
@@ -124,6 +147,7 @@ export interface OwnerJob {
   totalPrice: number;
   district: string;
   mandal: string;
+  machineType: string;
   depthFt: number;
   customerName: string | null;
   customerPhone: string | null;
@@ -131,21 +155,24 @@ export interface OwnerJob {
   hasInvoice: boolean;
 }
 
-export interface CompanyProfile {
+export interface CompanyProfile extends CasingRates {
   id: string;
   name: string;
   ownerName: string;
+  ownerSurname: string;
   phone: string;
   address: string;
   city: string;
   state: string;
+  mandal: string;
+  village: string;
+  pincode: string;
   experienceYears: number;
   registrationNumber: string;
   serviceAreas: string[];
-  machineType: string;
+  machineTypes: string[];
   maxDepthFt: number;
   rateCard: number[];
-  casingRate: number;
   estimatedCompletion: string;
   availableDates: string[];
   status: "PENDING" | "VERIFIED";
@@ -159,7 +186,7 @@ export interface CompanyPublicProfile {
   city: string;
   state: string;
   experienceYears: number;
-  machineType: string;
+  machineTypes: string[];
   registrationNumber: string;
   ratingAvg: number;
   serviceAreas: string[];
@@ -171,7 +198,13 @@ export interface CustomerProfile {
   id: string;
   phone: string;
   name: string | null;
+  surname: string | null;
   address: string | null;
+  state: string | null;
+  district: string | null;
+  mandal: string | null;
+  village: string | null;
+  pincode: string | null;
 }
 
 export const api = {
@@ -186,8 +219,16 @@ export const api = {
 
   // customer profile
   customerProfile: () => req<CustomerProfile>("/customer/profile", {}, "customer"),
-  updateCustomerProfile: (data: { name: string; address: string }) =>
-    req<CustomerProfile>("/customer/profile", { method: "PATCH", body: JSON.stringify(data) }, "customer"),
+  updateCustomerProfile: (data: {
+    name: string;
+    surname?: string;
+    address: string;
+    state?: string;
+    district?: string;
+    mandal?: string;
+    village?: string;
+    pincode?: string;
+  }) => req<CustomerProfile>("/customer/profile", { method: "PATCH", body: JSON.stringify(data) }, "customer"),
 
   // customer flow
   createRequest: (data: object) =>
@@ -223,8 +264,12 @@ export const api = {
   // owner flow
   leads: () => req<Lead[]>("/owner/leads", {}, "owner"),
   jobs: () => req<OwnerJob[]>("/owner/jobs", {}, "owner"),
-  advanceMilestone: (jobId: string) =>
-    req<{ ok: true; completed: string; jobDone: boolean }>(`/owner/jobs/${jobId}/milestones/advance`, { method: "POST" }, "owner"),
+  advanceMilestone: (jobId: string, data?: { casingType: string; casingFeet: number }) =>
+    req<{ ok: true; completed: string; jobDone: boolean }>(
+      `/owner/jobs/${jobId}/milestones/advance`,
+      { method: "POST", body: data ? JSON.stringify(data) : undefined },
+      "owner"
+    ),
   earnings: () =>
     req<{ thisMonth: number; recentPayouts: { code: string; amount: number }[] }>("/owner/earnings", {}, "owner"),
   profile: () => req<CompanyProfile>("/owner/profile", {}, "owner"),
@@ -235,4 +280,12 @@ export const api = {
     req<{ id: string; url: string }>("/owner/profile/borewell-photos", { method: "POST", body: JSON.stringify({ url }) }, "owner"),
   removeBorewellPhoto: (id: string) =>
     req<{ ok: true }>(`/owner/profile/borewell-photos/${id}`, { method: "DELETE" }, "owner"),
+
+  // location suggestions (crowd-sourced Mandal/Village names, no auth required)
+  mandalSuggestions: (state: string, district: string) =>
+    req<string[]>(`/locations/mandals?state=${encodeURIComponent(state)}&district=${encodeURIComponent(district)}`),
+  villageSuggestions: (state: string, district: string, mandal: string) =>
+    req<string[]>(
+      `/locations/villages?state=${encodeURIComponent(state)}&district=${encodeURIComponent(district)}&mandal=${encodeURIComponent(mandal)}`
+    ),
 };

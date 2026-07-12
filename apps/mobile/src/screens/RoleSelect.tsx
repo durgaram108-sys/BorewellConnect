@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useRef } from "react";
 import { Image, ImageBackground, Pressable, Text, View, useWindowDimensions } from "react-native";
 import { NativeStackScreenProps } from "@react-navigation/native-stack";
 import { c, font } from "../theme";
@@ -15,6 +15,21 @@ export function RoleSelect({ navigation }: NativeStackScreenProps<RootStackParam
   const { width } = useWindowDimensions();
   const isWide = width >= WIDE_BREAKPOINT;
   const { t } = useTranslation();
+  const tapCount = useRef(0);
+  const tapTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const onTaglineTap = () => {
+    tapCount.current += 1;
+    if (tapTimer.current) clearTimeout(tapTimer.current);
+    if (tapCount.current >= 5) {
+      tapCount.current = 0;
+      navigation.navigate("DebugLog");
+      return;
+    }
+    tapTimer.current = setTimeout(() => {
+      tapCount.current = 0;
+    }, 1500);
+  };
 
   const content = (
     <View style={{ width: "100%", maxWidth: CONTENT_MAX_WIDTH, alignSelf: "center" }}>
@@ -26,18 +41,20 @@ export function RoleSelect({ navigation }: NativeStackScreenProps<RootStackParam
         <Text style={{ fontSize: 30, fontFamily: font.extrabold, color: c.greenLight, letterSpacing: 0.5, marginTop: -6 }}>
           CONNECT
         </Text>
-        <Text
-          style={{
-            fontSize: 13,
-            color: "rgba(255,255,255,0.9)",
-            marginTop: 14,
-            maxWidth: 260,
-            textAlign: "center",
-            fontFamily: font.regular,
-          }}
-        >
-          {t("roleSelect.tagline")}
-        </Text>
+        <Pressable onPress={onTaglineTap}>
+          <Text
+            style={{
+              fontSize: 13,
+              color: "rgba(255,255,255,0.9)",
+              marginTop: 14,
+              maxWidth: 260,
+              textAlign: "center",
+              fontFamily: font.regular,
+            }}
+          >
+            {t("roleSelect.tagline")}
+          </Text>
+        </Pressable>
       </View>
 
       <Pressable

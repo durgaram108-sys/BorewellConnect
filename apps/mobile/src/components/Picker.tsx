@@ -150,6 +150,83 @@ export function SelectField({
   );
 }
 
+/**
+ * A text field that also suggests previously-entered values (e.g. Mandal/Village
+ * names other users have typed for the same district) without forcing a pick from
+ * a closed list — typing a brand-new value is always allowed.
+ */
+export function AutocompleteField({
+  value,
+  onChange,
+  suggestions,
+  placeholder,
+}: {
+  value: string | undefined;
+  onChange: (value: string) => void;
+  suggestions: string[];
+  placeholder?: string;
+}) {
+  const [focused, setFocused] = useState(false);
+  const safeValue = value ?? "";
+
+  const filtered = useMemo(() => {
+    const q = safeValue.trim().toLowerCase();
+    const list = q
+      ? suggestions.filter((s) => s.toLowerCase() !== q && s.toLowerCase().includes(q))
+      : suggestions;
+    return list.slice(0, 6);
+  }, [suggestions, safeValue]);
+
+  return (
+    <View style={{ marginBottom: 14 }}>
+      <TextInput
+        value={safeValue}
+        onChangeText={onChange}
+        onFocus={() => setFocused(true)}
+        onBlur={() => setTimeout(() => setFocused(false), 150)}
+        placeholder={placeholder}
+        placeholderTextColor={c.mutedLight}
+        style={{
+          borderWidth: 1,
+          borderColor: c.border,
+          borderRadius: 10,
+          paddingVertical: 12,
+          paddingHorizontal: 14,
+          fontSize: 14,
+          fontFamily: font.regular,
+          backgroundColor: "#fff",
+          color: c.text,
+        }}
+      />
+      {focused && filtered.length > 0 && (
+        <View
+          style={{
+            borderWidth: 1,
+            borderColor: c.border,
+            borderRadius: 10,
+            backgroundColor: "#fff",
+            marginTop: 4,
+            overflow: "hidden",
+          }}
+        >
+          {filtered.map((s) => (
+            <Pressable
+              key={s}
+              onPress={() => {
+                onChange(s);
+                setFocused(false);
+              }}
+              style={{ paddingVertical: 10, paddingHorizontal: 14, borderBottomWidth: 1, borderBottomColor: c.trackBg }}
+            >
+              <Text style={{ fontSize: 13, fontFamily: font.regular, color: c.text }}>{s}</Text>
+            </Pressable>
+          ))}
+        </View>
+      )}
+    </View>
+  );
+}
+
 export function MultiSelectField({
   values,
   onChange,

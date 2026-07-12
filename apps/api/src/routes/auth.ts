@@ -22,7 +22,7 @@ authRouter.post("/customer/otp/request", async (req, res) => {
   await prisma.otp.create({ data: { phone, purpose: "CUSTOMER", code, expiresAt: otpExpiry() } });
   await sendOtpSms(phone, code);
 
-  res.json({ ok: true, devHint: env.msg91MockOtp ? "OTP logged to server console (mock mode)" : undefined });
+  res.json({ ok: true, devHint: env.msg91MockOtp ? `Mock mode — no SMS is sent. Your OTP is ${code}` : undefined });
 });
 
 authRouter.post("/customer/otp/verify", async (req, res) => {
@@ -60,7 +60,7 @@ authRouter.post("/owner/otp/request", async (req, res) => {
   await prisma.otp.create({ data: { phone, purpose: "OWNER", code, expiresAt: otpExpiry() } });
   await sendOtpSms(phone, code);
 
-  res.json({ ok: true, devHint: env.msg91MockOtp ? "OTP logged to server console (mock mode)" : undefined });
+  res.json({ ok: true, devHint: env.msg91MockOtp ? `Mock mode — no SMS is sent. Your OTP is ${code}` : undefined });
 });
 
 authRouter.post("/owner/otp/verify", async (req, res) => {

@@ -127,7 +127,7 @@ export function JobDetails({ navigation, route }: NativeStackScreenProps<Custome
           📞 {booking.company.phone ?? t("jobDetails.sharedAfterPayment")}
         </Text>
         <Text style={{ fontSize: 13, color: c.muted, marginTop: 4, fontFamily: font.regular }}>
-          {t("jobDetails.machineType", { type: booking.company.machineType })}
+          {t("jobDetails.machineType", { type: booking.machineType })}
         </Text>
       </Card>
       <StripedPlaceholder label={t("jobDetails.sitePhoto")} style={{ height: 140, marginBottom: 22 }} />

@@ -1,22 +1,34 @@
 {
   "expo": {
     "name": "Borewell Connect",
-    "slug": "borewell-connect",
+    "slug": "borewellconnect",
     "version": "1.0.0",
     "orientation": "portrait",
     "userInterfaceStyle": "light",
+    "icon": "./assets/icon.png",
     "splash": {
-      "backgroundColor": "#0B2A4A"
+      "backgroundColor": "#0B2A4A",
+      "image": "./assets/icon.png",
+      "resizeMode": "contain"
     },
     "ios": {
       "supportsTablet": false,
       "bundleIdentifier": "com.borewellconnect.app"
     },
     "android": {
-      "package": "com.borewellconnect.app"
+      "package": "com.borewellconnect.app",
+      "permissions": [
+        "android.permission.ACCESS_COARSE_LOCATION",
+        "android.permission.ACCESS_FINE_LOCATION"
+      ],
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#0B2A4A"
+      }
     },
     "web": {
-      "bundler": "metro"
+      "bundler": "metro",
+      "favicon": "./assets/favicon.png"
     },
     "plugins": [
       [
@@ -24,7 +36,27 @@
         {
           "locationAlwaysAndWhenInUsePermission": "Borewell Connect uses your location to record the GPS coordinates of the drilling site."
         }
+      ],
+      [
+        "expo-build-properties",
+        {
+          "android": {
+            "usesCleartextTraffic": true
+          }
+        }
       ]
-    ]
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "cf321360-8905-46a3-a42c-43026e1707ea"
+      }
+    },
+    "owner": "durgaram333s-team",
+    "runtimeVersion": {
+      "policy": "appVersion"
+    },
+    "updates": {
+      "url": "https://u.expo.dev/cf321360-8905-46a3-a42c-43026e1707ea"
+    }
   }
 }

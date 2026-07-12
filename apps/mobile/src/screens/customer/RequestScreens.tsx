@@ -15,7 +15,7 @@ import { useTranslation } from "../../i18n/LanguageContext";
 import { CalendarField } from "../../components/CalendarField";
 import { SelectLocationMap } from "../../components/SelectLocationMap";
 import { DISTRICTS_BY_STATE, INDIA_STATES } from "../../data/indiaLocations";
-import { MAX_DEPTH_FT } from "../../utils/pricing";
+import { MACHINE_TYPES, MAX_DEPTH_FT } from "../../utils/pricing";
 import type { CustomerStackParams } from "../../navigation";
 
 const LAND_TYPES = ["Agriculture", "Residential", "Commercial"] as const;
@@ -32,6 +32,7 @@ function makeNewRequestSchema(t: (key: string, vars?: Record<string, string | nu
     district: z.string().min(1, t("newRequest.districtRequired")),
     mandal: z.string().min(1, t("newRequest.mandalRequired")),
     landType: z.enum(LAND_TYPES),
+    machineType: z.string().min(1, t("newRequest.machineTypeRequired")),
     depth: z
       .string()
       .min(1, t("newRequest.depthRequired"))
@@ -171,6 +172,7 @@ export function NewRequest({ navigation }: NativeStackScreenProps<CustomerStackP
       district: "",
       mandal: "",
       landType: "Agriculture",
+      machineType: "",
       depth: "",
       preferredDate: undefined as unknown as Date,
     },
@@ -184,6 +186,7 @@ export function NewRequest({ navigation }: NativeStackScreenProps<CustomerStackP
       district: data.district.trim(),
       mandal: data.mandal.trim(),
       landType: data.landType,
+      machineType: data.machineType,
       depthFt: Number(data.depth),
       preferredDate: data.preferredDate.toISOString(),
     });
@@ -272,6 +275,15 @@ export function NewRequest({ navigation }: NativeStackScreenProps<CustomerStackP
           </View>
         )}
       />
+      <FieldLabel>{t("newRequest.machineType").toUpperCase()}</FieldLabel>
+      <Controller
+        control={control}
+        name="machineType"
+        render={({ field: { value, onChange } }) => (
+          <SelectField value={value} onChange={onChange} options={[...MACHINE_TYPES]} placeholder={t("newRequest.selectMachineType")} />
+        )}
+      />
+      <ErrorText>{errors.machineType?.message}</ErrorText>
       <FieldLabel>{t("newRequest.depth", { max: MAX_DEPTH_FT }).toUpperCase()}</FieldLabel>
       <Controller
         control={control}
@@ -306,7 +318,7 @@ export function NewRequest({ navigation }: NativeStackScreenProps<CustomerStackP
 
 export function SelectLocation({ navigation, route }: NativeStackScreenProps<CustomerStackParams, "SelectLocation">) {
   const { t, language } = useTranslation();
-  const { country, state, district, mandal, landType, depthFt, preferredDate } = route.params;
+  const { country, state, district, mandal, landType, machineType, depthFt, preferredDate } = route.params;
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
   const [locating, setLocating] = useState(true);
@@ -345,6 +357,7 @@ export function SelectLocation({ navigation, route }: NativeStackScreenProps<Cus
         district,
         mandal,
         landType,
+        machineType,
         depthFt,
         preferredDate,
         lat: coords.lat,

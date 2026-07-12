@@ -5,6 +5,7 @@ import { authRouter } from "./routes/auth";
 import { customerRouter } from "./routes/customer";
 import { ownerRouter } from "./routes/owner";
 import { adminRouter } from "./routes/admin";
+import { locationsRouter } from "./routes/locations";
 import { verifyWebhookSignature } from "./services/razorpay";
 import { prisma } from "./prisma";
 
@@ -41,6 +42,7 @@ app.use("/auth", authRouter);
 app.use("/customer", customerRouter);
 app.use("/owner", ownerRouter);
 app.use("/admin", adminRouter);
+app.use("/locations", locationsRouter);
 
 app.use((err: Error, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
   console.error(err);

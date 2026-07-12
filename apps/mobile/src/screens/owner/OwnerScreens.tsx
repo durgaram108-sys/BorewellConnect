@@ -18,13 +18,13 @@ import {
   SkeletonDetail,
   SkeletonList,
 } from "../../components/ui";
-import { MultiSelectField, SelectField } from "../../components/Picker";
+import { AutocompleteField, MultiSelectField, SelectField } from "../../components/Picker";
 import { RateCardField } from "../../components/RateCardField";
 import { CalendarField } from "../../components/CalendarField";
 import { LanguagePicker } from "../../components/LanguagePicker";
 import { showToast } from "../../components/Toast";
 import { ALL_DISTRICTS, DISTRICTS_BY_STATE, INDIA_STATES } from "../../data/indiaLocations";
-import { bandsNeededForDepth, MAX_DEPTH_FT } from "../../utils/pricing";
+import { bandsNeededForDepth, CASING_TYPES, MACHINE_TYPES, MAX_DEPTH_FT } from "../../utils/pricing";
 import { useFetch } from "../../hooks/useFetch";
 import { useTranslation } from "../../i18n/LanguageContext";
 import type { OwnerStackParams } from "../../navigation";
@@ -33,18 +33,28 @@ function makeEditProfileSchema(t: (key: string, vars?: Record<string, string | n
   return z.object({
     name: z.string().min(1, t("editProfile.companyNameRequired")),
     ownerName: z.string().min(1, t("editProfile.ownerNameRequired")),
+    ownerSurname: z.string().optional(),
     address: z.string().optional(),
     state: z.string().min(1, t("editProfile.stateRequired")),
     city: z.string().min(1, t("editProfile.districtRequired")),
+    mandal: z.string().min(1, t("newRequest.mandalRequired")),
+    village: z.string().optional(),
+    pincode: z
+      .string()
+      .optional()
+      .refine((v) => !v || /^\d{6}$/.test(v), t("completeProfile.pincodeInvalid")),
     experienceYears: z.string().refine((v) => v.trim() !== "" && !isNaN(Number(v)) && Number(v) >= 0, t("editProfile.experienceYearsInvalid")),
     registrationNumber: z.string().optional(),
     serviceAreas: z.array(z.string()).min(1, t("editProfile.serviceAreasRequired")),
-    machineType: z.string().min(1, t("editProfile.machineTypeRequired")),
+    machineTypes: z.array(z.string()).min(1, t("editProfile.machineTypeRequired")),
     maxDepthFt: z
       .string()
       .refine((v) => v.trim() !== "" && !isNaN(Number(v)) && Number(v) > 0, t("editProfile.maxDepthRequired"))
       .refine((v) => Number(v) <= MAX_DEPTH_FT, t("editProfile.maxDepthMax", { max: MAX_DEPTH_FT })),
-    casingRate: z.string().refine((v) => v.trim() !== "" && !isNaN(Number(v)) && Number(v) > 0, t("editProfile.casingRateInvalid")),
+    casingRate6kg: z.string().optional().refine((v) => !v || (!isNaN(Number(v)) && Number(v) >= 0), t("editProfile.casingRateInvalid")),
+    casingRate8kg: z.string().optional().refine((v) => !v || (!isNaN(Number(v)) && Number(v) >= 0), t("editProfile.casingRateInvalid")),
+    casingRate10kg: z.string().optional().refine((v) => !v || (!isNaN(Number(v)) && Number(v) >= 0), t("editProfile.casingRateInvalid")),
+    casingRateIron: z.string().optional().refine((v) => !v || (!isNaN(Number(v)) && Number(v) >= 0), t("editProfile.casingRateInvalid")),
     estimatedCompletion: z.string().min(1, t("editProfile.estimatedCompletionRequired")),
   });
 }
@@ -84,8 +94,8 @@ export function OwnerLogin({ navigation }: NativeStackScreenProps<OwnerStackPara
     setBusy(true);
     setError("");
     try {
-      await api.ownerRequestOtp(phone);
-      navigation.navigate("OwnerOtp", { phone });
+      const { devHint } = await api.ownerRequestOtp(phone);
+      navigation.navigate("OwnerOtp", { phone, devHint });
     } catch (e) {
       setError(e instanceof Error ? e.message : t("ownerLogin.failedToSend"));
     } finally {
@@ -157,7 +167,7 @@ export function OwnerLogin({ navigation }: NativeStackScreenProps<OwnerStackPara
 
 export function OwnerOtp({ navigation, route }: NativeStackScreenProps<OwnerStackParams, "OwnerOtp">) {
   const { t } = useTranslation();
-  const { phone } = route.params;
+  const { phone, devHint } = route.params;
   const [code, setCode] = useState("");
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
@@ -186,6 +196,20 @@ export function OwnerOtp({ navigation, route }: NativeStackScreenProps<OwnerStac
       <Text style={{ fontSize: 13, color: c.muted, fontFamily: font.regular }}>
         {t("ownerOtp.sentTo", { phone })}
       </Text>
+      {devHint ? (
+        <View
+          style={{
+            backgroundColor: "#FDF3DC",
+            borderWidth: 1,
+            borderColor: "#F0D48A",
+            borderRadius: 10,
+            padding: 12,
+            marginTop: 14,
+          }}
+        >
+          <Text style={{ fontSize: 12, fontFamily: font.semibold, color: "#8A6416" }}>{devHint}</Text>
+        </View>
+      ) : null}
       <TextInput
         value={code}
         onChangeText={setCode}
@@ -329,6 +353,9 @@ export function NewLeads({ navigation }: NativeStackScreenProps<OwnerStackParams
                 {t("newLeads.landType", { type: l.landType })}
               </Text>
               <Text style={{ fontSize: 13, color: c.muted, marginTop: 6, fontFamily: font.regular }}>
+                {t("newLeads.machineType", { type: l.machineType })}
+              </Text>
+              <Text style={{ fontSize: 13, color: c.muted, marginTop: 6, fontFamily: font.regular }}>
                 {t("newLeads.expectedDepth", { depth: l.depthFt })}
               </Text>
               <Text style={{ fontSize: 13, color: c.muted, marginTop: 6, fontFamily: font.regular }}>
@@ -392,6 +419,9 @@ export function JobUpdate({ navigation, route }: NativeStackScreenProps<OwnerSta
   const translateMilestone = useMilestoneLabel();
   const { jobId } = route.params;
   const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+  const [casingType, setCasingType] = useState("");
+  const [casingFeet, setCasingFeet] = useState("");
   const { data: job, loading, refreshing, refresh } = useFetch(
     () => api.jobs().then((all) => all.find((j) => j.id === jobId) ?? null),
     [jobId]
@@ -406,15 +436,24 @@ export function JobUpdate({ navigation, route }: NativeStackScreenProps<OwnerSta
     );
   }
 
-  const next = job.milestones.find((m) => !m.completedAt);
+  const nextIndex = job.milestones.findIndex((m) => !m.completedAt);
+  const next = nextIndex === -1 ? undefined : job.milestones[nextIndex];
+  const isLastMilestone = nextIndex === job.milestones.length - 1;
 
   const advance = async () => {
+    setError("");
+    if (isLastMilestone) {
+      if (!casingType || !casingFeet.trim() || isNaN(Number(casingFeet)) || Number(casingFeet) < 0) {
+        setError(t("jobUpdate.casingRequired"));
+        return;
+      }
+    }
     setBusy(true);
     try {
-      await api.advanceMilestone(job.id);
+      await api.advanceMilestone(job.id, isLastMilestone ? { casingType, casingFeet: Number(casingFeet) } : undefined);
       refresh();
     } catch (e) {
-      console.error(e);
+      setError(e instanceof Error ? e.message : t("jobUpdate.markFailed"));
     } finally {
       setBusy(false);
     }
@@ -445,6 +484,24 @@ export function JobUpdate({ navigation, route }: NativeStackScreenProps<OwnerSta
           </View>
         ))}
       </View>
+      {next && isLastMilestone && (
+        <View style={{ marginBottom: 18 }}>
+          <Text style={{ fontSize: 13, fontFamily: font.bold, color: c.text, marginBottom: 4 }}>{t("jobUpdate.casingUsedTitle")}</Text>
+          <Text style={{ fontSize: 12, color: c.muted, marginBottom: 12, fontFamily: font.regular }}>
+            {t("jobUpdate.casingUsedHint")}
+          </Text>
+          <FieldLabel>{t("jobUpdate.casingType").toUpperCase()}</FieldLabel>
+          <SelectField
+            value={CASING_TYPES.find((ct) => ct.key === casingType)?.label ?? ""}
+            onChange={(label) => setCasingType(CASING_TYPES.find((ct) => ct.label === label)?.key ?? "")}
+            options={CASING_TYPES.map((ct) => ct.label)}
+            placeholder={t("jobUpdate.selectCasingType")}
+          />
+          <FieldLabel>{t("jobUpdate.casingFeet").toUpperCase()}</FieldLabel>
+          <Field value={casingFeet} onChangeText={setCasingFeet} keyboardType="number-pad" placeholder={t("jobUpdate.casingFeetPlaceholder")} />
+        </View>
+      )}
+      <ErrorText>{error}</ErrorText>
       {next && <PrimaryButton title={t("jobUpdate.markMilestone", { label: translateMilestone(next.label) })} onPress={advance} busy={busy} />}
     </ScrollView>
   );
@@ -749,22 +806,50 @@ export function EditProfile({ navigation }: NativeStackScreenProps<OwnerStackPar
       ? {
           name: profile.name,
           ownerName: profile.ownerName,
+          ownerSurname: profile.ownerSurname ?? "",
           address: profile.address,
           state: profile.state,
           city: profile.city,
+          mandal: profile.mandal ?? "",
+          village: profile.village ?? "",
+          pincode: profile.pincode ?? "",
           experienceYears: String(profile.experienceYears),
           registrationNumber: profile.registrationNumber,
           serviceAreas: profile.serviceAreas,
-          machineType: profile.machineType,
+          machineTypes: profile.machineTypes,
           maxDepthFt: profile.maxDepthFt ? String(profile.maxDepthFt) : "",
-          casingRate: String(profile.casingRate),
+          casingRate6kg: profile.casingRate6kg ? String(profile.casingRate6kg) : "",
+          casingRate8kg: profile.casingRate8kg ? String(profile.casingRate8kg) : "",
+          casingRate10kg: profile.casingRate10kg ? String(profile.casingRate10kg) : "",
+          casingRateIron: profile.casingRateIron ? String(profile.casingRateIron) : "",
           estimatedCompletion: profile.estimatedCompletion,
         }
       : undefined,
   });
   const selectedState = watch("state");
+  const selectedCity = watch("city");
+  const selectedMandal = watch("mandal");
   const maxDepthFt = watch("maxDepthFt");
   const bandCount = Number(maxDepthFt) > 0 ? bandsNeededForDepth(Number(maxDepthFt)) : 0;
+
+  const [mandalSuggestions, setMandalSuggestions] = useState<string[]>([]);
+  const [villageSuggestions, setVillageSuggestions] = useState<string[]>([]);
+
+  useEffect(() => {
+    if (!selectedState || !selectedCity) {
+      setMandalSuggestions([]);
+      return;
+    }
+    api.mandalSuggestions(selectedState, selectedCity).then(setMandalSuggestions).catch(() => {});
+  }, [selectedState, selectedCity]);
+
+  useEffect(() => {
+    if (!selectedState || !selectedCity || !selectedMandal) {
+      setVillageSuggestions([]);
+      return;
+    }
+    api.villageSuggestions(selectedState, selectedCity, selectedMandal).then(setVillageSuggestions).catch(() => {});
+  }, [selectedState, selectedCity, selectedMandal]);
 
   if (loading || !profile) {
     return (
@@ -787,16 +872,23 @@ export function EditProfile({ navigation }: NativeStackScreenProps<OwnerStackPar
       await api.updateProfile({
         name: data.name,
         ownerName: data.ownerName,
+        ownerSurname: data.ownerSurname,
         address: data.address,
         state: data.state,
         city: data.city,
+        mandal: data.mandal,
+        village: data.village,
+        pincode: data.pincode,
         experienceYears: Number(data.experienceYears),
         registrationNumber: data.registrationNumber,
         serviceAreas: data.serviceAreas,
-        machineType: data.machineType,
+        machineTypes: data.machineTypes,
         maxDepthFt: Number(data.maxDepthFt),
         rateCard: trimmedRateCard,
-        casingRate: Number(data.casingRate),
+        casingRate6kg: Number(data.casingRate6kg || 0),
+        casingRate8kg: Number(data.casingRate8kg || 0),
+        casingRate10kg: Number(data.casingRate10kg || 0),
+        casingRateIron: Number(data.casingRateIron || 0),
         estimatedCompletion: data.estimatedCompletion,
         availableDates,
       });
@@ -822,6 +914,14 @@ export function EditProfile({ navigation }: NativeStackScreenProps<OwnerStackPar
         render={({ field: { value, onChange } }) => <Field value={value} onChangeText={onChange} />}
       />
       <ErrorText>{errors.ownerName?.message}</ErrorText>
+      <FieldLabel>{t("completeProfile.surname").toUpperCase()}</FieldLabel>
+      <Controller
+        control={control}
+        name="ownerSurname"
+        render={({ field: { value, onChange } }) => (
+          <Field value={value} onChangeText={onChange} placeholder={t("completeProfile.surnamePlaceholder")} />
+        )}
+      />
       <FieldLabel>{t("editProfile.address").toUpperCase()}</FieldLabel>
       <Controller
         control={control}
@@ -868,6 +968,48 @@ export function EditProfile({ navigation }: NativeStackScreenProps<OwnerStackPar
         )}
       />
       <ErrorText>{errors.city?.message}</ErrorText>
+      <FieldLabel>{t("newRequest.mandal").toUpperCase()}</FieldLabel>
+      <Controller
+        control={control}
+        name="mandal"
+        render={({ field: { value, onChange } }) => (
+          <AutocompleteField
+            value={value}
+            onChange={onChange}
+            suggestions={mandalSuggestions}
+            placeholder={t("newRequest.mandalPlaceholder")}
+          />
+        )}
+      />
+      <ErrorText>{errors.mandal?.message}</ErrorText>
+      <FieldLabel>{t("completeProfile.village").toUpperCase()}</FieldLabel>
+      <Controller
+        control={control}
+        name="village"
+        render={({ field: { value, onChange } }) => (
+          <AutocompleteField
+            value={value ?? ""}
+            onChange={onChange}
+            suggestions={villageSuggestions}
+            placeholder={t("completeProfile.villagePlaceholder")}
+          />
+        )}
+      />
+      <FieldLabel>{t("completeProfile.pincode").toUpperCase()}</FieldLabel>
+      <Controller
+        control={control}
+        name="pincode"
+        render={({ field: { value, onChange } }) => (
+          <Field
+            value={value}
+            onChangeText={onChange}
+            keyboardType="number-pad"
+            maxLength={6}
+            placeholder={t("completeProfile.pincodePlaceholder")}
+          />
+        )}
+      />
+      <ErrorText>{errors.pincode?.message}</ErrorText>
       <FieldLabel>{t("editProfile.experienceYears").toUpperCase()}</FieldLabel>
       <Controller
         control={control}
@@ -891,12 +1033,40 @@ export function EditProfile({ navigation }: NativeStackScreenProps<OwnerStackPar
       />
       <ErrorText>{errors.serviceAreas?.message}</ErrorText>
       <FieldLabel>{t("editProfile.machineType").toUpperCase()}</FieldLabel>
+      <Text style={{ fontSize: 12, color: c.muted, marginTop: -4, marginBottom: 10, fontFamily: font.regular }}>
+        {t("editProfile.machineTypeHint")}
+      </Text>
       <Controller
         control={control}
-        name="machineType"
-        render={({ field: { value, onChange } }) => <Field value={value} onChangeText={onChange} />}
+        name="machineTypes"
+        render={({ field: { value, onChange } }) => {
+          const selected = value ?? [];
+          return (
+          <View style={{ flexDirection: "row", gap: 8, flexWrap: "wrap", marginBottom: 14 }}>
+            {MACHINE_TYPES.map((mt) => {
+              const active = selected.includes(mt);
+              return (
+                <Pressable
+                  key={mt}
+                  onPress={() => onChange(active ? selected.filter((v) => v !== mt) : [...selected, mt])}
+                  style={{
+                    paddingVertical: 10,
+                    paddingHorizontal: 14,
+                    borderRadius: 999,
+                    backgroundColor: active ? c.navy : "#fff",
+                    borderWidth: active ? 0 : 1,
+                    borderColor: c.border,
+                  }}
+                >
+                  <Text style={{ fontSize: 13, fontFamily: font.semibold, color: active ? "#fff" : "#333" }}>{mt}</Text>
+                </Pressable>
+              );
+            })}
+          </View>
+          );
+        }}
       />
-      <ErrorText>{errors.machineType?.message}</ErrorText>
+      <ErrorText>{errors.machineTypes?.message}</ErrorText>
       <FieldLabel>{t("editProfile.estimatedCompletion").toUpperCase()}</FieldLabel>
       <Controller
         control={control}
@@ -931,15 +1101,48 @@ export function EditProfile({ navigation }: NativeStackScreenProps<OwnerStackPar
         </>
       )}
 
-      <FieldLabel>{t("editProfile.casingRate").toUpperCase()}</FieldLabel>
+      <Text style={{ fontSize: 15, fontFamily: font.extrabold, color: c.text, marginTop: 8, marginBottom: 4 }}>
+        {t("editProfile.casingPricingTitle")}
+      </Text>
+      <Text style={{ fontSize: 12, color: c.muted, marginBottom: 14, fontFamily: font.regular }}>
+        {t("editProfile.casingPricingHint")}
+      </Text>
+      <FieldLabel>{t("editProfile.casingRate6kg").toUpperCase()}</FieldLabel>
       <Controller
         control={control}
-        name="casingRate"
+        name="casingRate6kg"
         render={({ field: { value, onChange } }) => (
           <Field value={value} onChangeText={onChange} keyboardType="number-pad" placeholder={t("editProfile.casingRatePlaceholder")} />
         )}
       />
-      <ErrorText>{errors.casingRate?.message}</ErrorText>
+      <ErrorText>{errors.casingRate6kg?.message}</ErrorText>
+      <FieldLabel>{t("editProfile.casingRate8kg").toUpperCase()}</FieldLabel>
+      <Controller
+        control={control}
+        name="casingRate8kg"
+        render={({ field: { value, onChange } }) => (
+          <Field value={value} onChangeText={onChange} keyboardType="number-pad" placeholder={t("editProfile.casingRatePlaceholder")} />
+        )}
+      />
+      <ErrorText>{errors.casingRate8kg?.message}</ErrorText>
+      <FieldLabel>{t("editProfile.casingRate10kg").toUpperCase()}</FieldLabel>
+      <Controller
+        control={control}
+        name="casingRate10kg"
+        render={({ field: { value, onChange } }) => (
+          <Field value={value} onChangeText={onChange} keyboardType="number-pad" placeholder={t("editProfile.casingRatePlaceholder")} />
+        )}
+      />
+      <ErrorText>{errors.casingRate10kg?.message}</ErrorText>
+      <FieldLabel>{t("editProfile.casingRateIron").toUpperCase()}</FieldLabel>
+      <Controller
+        control={control}
+        name="casingRateIron"
+        render={({ field: { value, onChange } }) => (
+          <Field value={value} onChangeText={onChange} keyboardType="number-pad" placeholder={t("editProfile.casingRatePlaceholder")} />
+        )}
+      />
+      <ErrorText>{errors.casingRateIron?.message}</ErrorText>
 
       <Text style={{ fontSize: 15, fontFamily: font.extrabold, color: c.text, marginTop: 8, marginBottom: 4 }}>
         {t("editProfile.availableDatesTitle")}

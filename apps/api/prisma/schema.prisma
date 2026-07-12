@@ -48,7 +48,13 @@ model Customer {
   id        String   @id @default(cuid())
   phone     String   @unique
   name      String?
+  surname   String?
   address   String?
+  state     String?
+  district  String?
+  mandal    String?
+  village   String?
+  pincode   String?
   createdAt DateTime @default(now())
 
   requests BorewellRequest[]
@@ -72,16 +78,23 @@ model Company {
   phone              String        @unique
   name               String
   ownerName          String
+  ownerSurname       String        @default("")
   address            String        @default("")
   city               String
   state              String
+  mandal             String        @default("")
+  village            String        @default("")
+  pincode            String        @default("")
   experienceYears    Int           @default(0)
   registrationNumber String        @default("")
   serviceAreas       String[]      @default([])
-  machineType        String        @default("DTH")
+  machineTypes       String[]      @default([])
   maxDepthFt         Int           @default(0)
   rateCard           Int[]         @default([])
-  casingRate         Int           @default(11500)
+  casingRate6kg      Int           @default(0)
+  casingRate8kg      Int           @default(0)
+  casingRate10kg     Int           @default(0)
+  casingRateIron     Int           @default(0)
   estimatedCompletion String       @default("3–4 days")
   availableDates     DateTime[]    @default([])
   status             CompanyStatus @default(PENDING)
@@ -133,6 +146,7 @@ model BorewellRequest {
   district      String
   mandal        String
   landType      LandType
+  machineType   String
   depthFt       Int
   lat           Float
   lng           Float
@@ -152,7 +166,10 @@ model Quote {
   bandRates            Int[]    @default([])
   machineType          String
   estimatedCompletion  String
-  casingRate           Int      @default(11500)
+  casingRate6kg        Int      @default(0)
+  casingRate8kg        Int      @default(0)
+  casingRate10kg       Int      @default(0)
+  casingRateIron       Int      @default(0)
   createdAt            DateTime @default(now())
 
   request BorewellRequest @relation(fields: [requestId], references: [id])
@@ -169,11 +186,16 @@ model Booking {
   quoteId     String        @unique
   customerId  String
   companyId   String
-  bandRates   Int[]         @default([])
-  casingRate  Int           @default(11500)
-  bookingFee  Int           @default(500)
-  status      BookingStatus @default(CONFIRMED)
-  createdAt   DateTime      @default(now())
+  bandRates      Int[]         @default([])
+  casingRate6kg  Int           @default(0)
+  casingRate8kg  Int           @default(0)
+  casingRate10kg Int           @default(0)
+  casingRateIron Int           @default(0)
+  casingType     String?
+  casingFeet     Int?
+  bookingFee     Int           @default(500)
+  status         BookingStatus @default(CONFIRMED)
+  createdAt      DateTime      @default(now())
 
   request  BorewellRequest @relation(fields: [requestId], references: [id])
   quote    Quote           @relation(fields: [quoteId], references: [id])
@@ -241,4 +263,32 @@ model Payment {
   createdAt         DateTime      @default(now())
 
   booking Booking @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+}
+
+/// Crowd-sourced Mandal names, keyed under State + District. Grows organically —
+/// whenever a customer or company saves a profile (or files a request) with a
+/// Mandal not already here, it's recorded so the next person in that district
+/// sees it as a dropdown suggestion instead of retyping it from scratch.
+model MandalSuggestion {
+  id        String   @id @default(cuid())
+  state     String
+  district  String
+  mandal    String
+  createdAt DateTime @default(now())
+
+  @@unique([state, district, mandal])
+  @@index([state, district])
+}
+
+/// Same idea as MandalSuggestion, one level deeper: Village names under State + District + Mandal.
+model VillageSuggestion {
+  id        String   @id @default(cuid())
+  state     String
+  district  String
+  mandal    String
+  village   String
+  createdAt DateTime @default(now())
+
+  @@unique([state, district, mandal, village])
+  @@index([state, district, mandal])
 }
